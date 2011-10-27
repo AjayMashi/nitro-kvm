@@ -627,11 +627,6 @@ int kvm_run(CPUState *env)
     }
 #endif
     if (1) {
-    	// diekmann debug
-    	//if(run->exit_reason != KVM_EXIT_IO && run->exit_reason != KVM_EXIT_MMIO){
-    	//	fprintf(stdout, "Exit reason: %d\n", run->exit_reason);
-    	//}
-
         switch (run->exit_reason) {
         case KVM_EXIT_UNKNOWN:
             r = handle_unhandled(run->hw.hardware_exit_reason);
@@ -670,21 +665,16 @@ int kvm_run(CPUState *env)
             break;
 #if defined(__s390__)
         case KVM_EXIT_S390_SIEIC:
-        	r = kvm_s390_handle_intercept(kvm, env, run);
-        	break;
+            r = kvm_s390_handle_intercept(kvm, env, run);
+            break;
         case KVM_EXIT_S390_RESET:
-        	r = kvm_s390_handle_reset(kvm, env, run);
-        	break;
+            r = kvm_s390_handle_reset(kvm, env, run);
+            break;
 #endif
-        case KVM_EXIT_INTERNAL_ERROR:
-        	kvm_handle_internal_error(env, run);
-        	r = 1;
-        	break;
-        case 42: /* nitro singlestepping mode */
-        	fprintf(stdout, "Exit reason: %d\nstopping machine\n", run->exit_reason);
-        	vm_stop(EXCP_INTERRUPT);
-        	r = 0;
-        	break;
+	case KVM_EXIT_INTERNAL_ERROR:
+            kvm_handle_internal_error(env, run);
+            r = 1;
+	    break;
         default:
             if (kvm_arch_run(env)) {
                 fprintf(stderr, "unhandled vm exit: 0x%x\n", run->exit_reason);

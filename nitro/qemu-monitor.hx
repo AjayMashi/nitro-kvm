@@ -1621,32 +1621,6 @@ Note: This command must be issued before issuing any other command.
 
 EQMP
 
-    {
-        .name       = "start_scsinglestep",
-        .args_type  = "",
-        .params     = "",
-        .help       = "start system call tracing singlestep mode. After each SysCall, the vmm traps back to qemu with return code 42. Qemu then halts all cpus",
-        .mhandler.cmd  = do_start_scsinglestep,
-    },
-
-STEXI
-@item start_scsinglestep
-Enable SysCall Singlestep Mode
-ETEXI
-
-    {
-        .name       = "stop_scsinglestep",
-        .args_type  = "",
-        .params     = "",
-        .help       = "stop system call tracing singlestep mode.",
-        .mhandler.cmd  = do_stop_scsinglestep,
-    },
-
-STEXI
-@item start_scsinglestep
-Disable SysCall Singlestep Mode
-ETEXI
-
 
     {
         .name       = "start_sctrace",

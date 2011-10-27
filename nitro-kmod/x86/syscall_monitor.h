@@ -35,8 +35,8 @@ struct scmon_rule {
 int scmon_flush_rules(void);
 int scmon_add_rule(enum kvm_reg cond_reg, unsigned long int cond_val, enum kvm_reg action_reg, int64_t action_reg_offset, enum scmon_action action);
 int scmon_delete_rule(unsigned int id);
-//int scmon_start(struct kvm *kvm, int64_t idt_index, char *syscall_reg);
-//int scmon_stop(struct kvm *kvm);
+int scmon_start(struct kvm *kvm, int64_t idt_index, char *syscall_reg);
+int scmon_stop(struct kvm *kvm);
 int scmon_list_rules(char *buffer, unsigned int buffer_length);
 int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu);
 

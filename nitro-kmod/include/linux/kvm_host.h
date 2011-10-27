@@ -260,7 +260,7 @@ struct kvm {
 	long mmu_notifier_count;
 #endif
 
-	struct nitro_data nitro_data;
+	struct sctrace_data sctd;
 };
 
 /* The guest did something we don't support. */

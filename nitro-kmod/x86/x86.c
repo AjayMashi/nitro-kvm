@@ -100,7 +100,7 @@
 
 #include "kvm_vmi.h"
 #include "syscall_trace.h"
-//#include "syscall_monitor.h"
+#include "syscall_monitor.h"
 
 #define MAX_IO_MSRS 256
 #define CR0_RESERVED_BITS						\
@@ -3542,14 +3542,6 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		r = 0;
 		break;
 	}
-	case KVM_START_SCSINGLESTEP: {
-		r = start_syscall_singlestep(kvm);
-		break;
-	}
-	case KVM_STOP_SCSINGLESTEP: {
-		r = stop_syscall_singlestep(kvm);
-		break;
-	}
 	case KVM_START_SCTRACE: {
 		struct kvm_vmi_data d;
 
@@ -3557,11 +3549,11 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		if (copy_from_user(&d, argp, sizeof d))
 			goto out;
 
-		r = start_nitro(kvm, d.idt_index, d.syscall_reg, 0);
+		r = start_syscall_trace(kvm, d.idt_index, d.syscall_reg, 0);
 		break;
 	}
 	case KVM_STOP_SCTRACE: {
-		r = stop_nitro(kvm);
+		r = stop_syscall_trace(kvm);
 		break;
 	}
 	case KVM_START_SCMON: {
@@ -3571,11 +3563,11 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		if (copy_from_user(&d, argp, sizeof d))
 			goto out;
 
-		r = start_nitro(kvm, d.idt_index, d.syscall_reg, 1);
+		r = scmon_start(kvm, d.idt_index, d.syscall_reg);
 		break;
 	}
 	case KVM_STOP_SCMON: {
-		r = stop_nitro(kvm);
+		r = scmon_stop(kvm);
 		break;
 	}
 	case KVM_LIST_SCMON_RULES: {
@@ -4440,28 +4432,6 @@ int is_sysenter_sysreturn(struct kvm_vcpu *vcpu) {
 	if (vcpu->arch.emulate_ctxt.decode.twobyte
 			&& ((vcpu->arch.emulate_ctxt.decode.b == 0x34)
 			|| (vcpu->arch.emulate_ctxt.decode.b == 0x35))) {
-		return 1;
-	}
-	return 0;
-}
-
-int is_int(struct kvm_vcpu *vcpu) {
-	//This is more or less a copy and paste of the emulate_instruction function preamble,
-	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
-	//preamble for significant changes and reflect them here
-
-	kvm_clear_exception_queue(vcpu);
-	cache_all_regs(vcpu);
-
-	init_emulate_ctxt(vcpu);
-	vcpu->arch.emulate_ctxt.interruptibility = 0;
-	vcpu->arch.emulate_ctxt.exception = -1;
-	vcpu->arch.emulate_ctxt.perm_ok = false;
-
-	x86_decode_insn(&vcpu->arch.emulate_ctxt);
-
-	if (!vcpu->arch.emulate_ctxt.decode.twobyte
-			&& vcpu->arch.emulate_ctxt.decode.b == 0xcd) {
 		return 1;
 	}
 	return 0;

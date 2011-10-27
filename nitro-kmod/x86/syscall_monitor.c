@@ -11,8 +11,7 @@
 #include "nitro_output.h"
 
 #define NITRO_SCMON_ACTION_VALUE_MAX_SIZE 256
-//old value: 384
-#define NITRO_SCMON_OUTPUT_LINE_MAX_SIZE 512
+#define NITRO_SCMON_OUTPUT_LINE_MAX_SIZE 384
 
 extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 
@@ -32,15 +31,6 @@ void scmon_register_to_name(enum kvm_reg reg, char *str) {
 		case VCPU_REGS_RBP: tmp = "rbp"; break;
 		case VCPU_REGS_RSI: tmp = "rsi"; break;
 		case VCPU_REGS_RDI: tmp = "rdi"; break;
-		case VCPU_REGS_R8: tmp = "r8 "; break;
-		case VCPU_REGS_R9: tmp = "r9 "; break;
-		case VCPU_REGS_R10: tmp = "r10"; break;
-		case VCPU_REGS_R11: tmp = "r11"; break;
-		case VCPU_REGS_R12: tmp = "r12"; break;
-		case VCPU_REGS_R13: tmp = "r13"; break;
-		case VCPU_REGS_R14: tmp = "r14"; break;
-		case VCPU_REGS_R15: tmp = "r15"; break;
-		case VCPU_SCMON_REGS_ANY: tmp = "any"; break;  //WARNING TO BE EXPECTED: warning: case value ‘42’ not in enumerated type ‘enum kvm_reg’
 		default: tmp = "";
 	}
 
@@ -185,120 +175,13 @@ int scmon_flush_rules() {
 	return 0;
 }
 
-static void snprint_action_register_headerline(char *output_line,
-		enum kvm_reg action_reg, struct scmon_rule *current_rule,
-		/* memory allocated by scmon_print_trace: */
-		char *cond_reg_name, char *action_reg_name, char *action_name,
-		/*kvm data */
-		struct kvm_vcpu *vcpu
-)
-{
-
-
-	scmon_register_to_name(action_reg, action_reg_name);
-	scmon_action_to_name(current_rule->action, action_name);
-
-	if(current_rule->cond_reg == VCPU_SCMON_REGS_ANY){
-		// create default nitro like output line
-		unsigned long cr3, pde, screg;
-		u32 verifier;
-		screg = kvm_register_read(vcpu, vcpu->kvm->nitro_data.syscall_reg);
-
-		get_process_hardware_id(vcpu, &cr3, &verifier, &pde);
-
-		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1,
-				"kvm:syscall_mon(any): %s:0x%lX:%u:0x%lX %lu cr3=0x%lX ",
-				vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg, cr3);
-	}else{
-		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %s == %lX occured: %s%+ld %s = ", cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
-	}
-}
-
-
-static int snprint_action_register(char *action_value,
-		enum kvm_reg action_reg, struct scmon_rule *current_rule,
-		/* memory allocated by scmon_print_trace: */
-		char *cond_reg_name, char *action_reg_name, char *action_name,
-		/*kvm data */
-		struct kvm_vcpu *vcpu
-)
-{
-	unsigned long scmonactionreg, scmonderef, len, abs_offset;
-	char *buffer;
+int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
+	unsigned long scmonreg, scmonactionreg, scmonderef, len, abs_offset;
+	char *buffer, *cond_reg_name, *action_reg_name, *action_name, *output_line, *action_value;
+	struct scmon_rule *current_rule;
 	u32 error;
 
 	len = 0;
-
-	scmonactionreg = kvm_register_read(vcpu, action_reg);
-	abs_offset = abs(current_rule->action_reg_offset);
-
-	if (current_rule->action_reg_offset <= 0) {
-		if (abs_offset > scmonactionreg) {
-			printk("kvm:syscall_mon: offset is to big\n");
-			return -1;
-		}
-		scmonactionreg -= abs_offset;
-	}
-	else {
-		scmonactionreg += abs_offset;
-	}
-
-
-	// update if if(current_rule->cond_reg == VCPU_SCMON_REGS_ANY){
-	scmon_register_to_name(action_reg, action_reg_name);
-
-
-	switch (current_rule->action) {
-	case SCMON_ACTION_HEX:
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=0x%lX ", action_reg_name, scmonactionreg);
-		break;
-	case SCMON_ACTION_INT:
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%ld\n", action_reg_name, scmonactionreg);
-		break;
-	case SCMON_ACTION_UINT:
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%lu\n", action_reg_name, scmonactionreg);
-		break;
-	case SCMON_ACTION_DEREFHEX:
-		kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=0x%lX\n", action_reg_name, scmonderef);
-		break;
-	case SCMON_ACTION_DEREFINT:
-		kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%ld\n", action_reg_name, scmonderef);
-		break;
-	case SCMON_ACTION_DEREFUINT:
-		kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
-		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%lu\n", action_reg_name, scmonderef);
-		break;
-	case SCMON_ACTION_DEREFSTR:
-		buffer = kmalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
-		if (buffer == NULL) {
-			printk("kvm:syscall_mon: could not allocate memory for string buffer\n");
-			return -1;
-		}
-		kvm_read_guest_virt_system(scmonactionreg, buffer, NITRO_SCMON_ACTION_VALUE_MAX_SIZE, vcpu, &error);
-		buffer[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1] = '\0';
-		len = snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%s\n", action_reg_name, buffer);
-		kfree(buffer);
-		break;
-	}
-
-	// check for truncation
-	if (len >= NITRO_SCMON_ACTION_VALUE_MAX_SIZE-2) {
-		//action_value[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-2] = '\n';
-		action_value[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-2] = ' ';
-		action_value[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1] = '\0';
-	}
-
-	return 0;
-}
-
-int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
-	unsigned long scmonreg, len;
-	char *cond_reg_name, *action_reg_name, *action_name, *output_line, *action_value;
-	struct scmon_rule *current_rule;
-	int rule_matches = 0;
-
 	current_rule = scmon_first_rule;
 	if (current_rule == NULL) {
 		return 0;
@@ -341,78 +224,72 @@ int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
 
 	current_rule = scmon_first_rule;
 	while (current_rule != NULL) {
-		rule_matches = 0;
-		if(current_rule->cond_reg == VCPU_SCMON_REGS_ANY){
-			// if cond_reg is any, we trigger on any value in the sysCall register
-			// vcpu->kvm->sctd->syscall_reg
-			//printk("kvm_register_read any %d\n", vcpu->kvm->sctd.syscall_reg);
+		scmonreg = kvm_register_read(vcpu, current_rule->cond_reg);
+		if (scmonreg == current_rule->cond_val) {
+			scmonactionreg = kvm_register_read(vcpu, current_rule->action_reg);
+			abs_offset = abs(current_rule->action_reg_offset);
 
-			scmonreg = kvm_register_read(vcpu, vcpu->kvm->nitro_data.syscall_reg);
-			scmon_register_to_name(vcpu->kvm->nitro_data.syscall_reg, cond_reg_name);
-
-			rule_matches = 1;
-		}else{
-			scmonreg = kvm_register_read(vcpu, current_rule->cond_reg);
-			scmon_register_to_name(current_rule->cond_reg, cond_reg_name);
-
-			if(scmonreg == current_rule->cond_val){
-				rule_matches = 1;
-			}
-		}
-		if (rule_matches) {
-			if(current_rule->action_reg == VCPU_SCMON_REGS_ANY){
-				// iterate over all registers
-				enum kvm_reg all_registers[] =  {
-						VCPU_REGS_RAX,
-						VCPU_REGS_RCX,
-						VCPU_REGS_RDX,
-						VCPU_REGS_RBX,
-						VCPU_REGS_RSP,
-						VCPU_REGS_RBP,
-						VCPU_REGS_RSI,
-						VCPU_REGS_RDI,
-						VCPU_REGS_R8,
-						VCPU_REGS_R9,
-						VCPU_REGS_R10,
-						VCPU_REGS_R11,
-						VCPU_REGS_R12,
-						VCPU_REGS_R13,
-						VCPU_REGS_R14,
-						VCPU_REGS_R15,
-				};
-				int i;
-				int cont = 0;
-
-				snprint_action_register_headerline(output_line, current_rule->action_reg, current_rule, cond_reg_name, action_reg_name, action_name, vcpu);
-
-				for(i=0; i < VCPU_REGS_RIP; ++i){
-					if(snprint_action_register(action_value, all_registers[i], current_rule,
-							cond_reg_name, action_reg_name, action_name, vcpu) != 0){
-						cont = 1;
-					}
-
-					strlcat(output_line, action_value, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1);
+			if (current_rule->action_reg_offset <= 0) {
+				if (abs_offset > scmonactionreg) {
+					printk("kvm:syscall_mon: offset is to big\n");
+					continue;
 				}
-				if(cont) continue;
-			}else{
-				snprint_action_register_headerline(output_line, current_rule->action_reg, current_rule, cond_reg_name, action_reg_name, action_name, vcpu);
-				if(snprint_action_register(action_value, current_rule->action_reg, current_rule,
-						cond_reg_name, action_reg_name, action_name, vcpu) != 0) continue;
-
-
-				strlcat(output_line, action_value, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1);
+				scmonactionreg -= abs_offset;
 			}
-			//add \n and correctly end string
-			len = snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "%s\n", output_line);
-			if (len >= NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-2) {
-				output_line[NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-2] = '\n';
-				output_line[NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1] = '\0';
+			else {
+				scmonactionreg += abs_offset;
 			}
+
+			scmon_register_to_name(current_rule->cond_reg, cond_reg_name);
+			scmon_register_to_name(current_rule->action_reg, action_reg_name);
+			scmon_action_to_name(current_rule->action, action_name);
+
+			snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %s == %lX occured: %s%+ld %s = ", cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
+			switch (current_rule->action) {
+				case SCMON_ACTION_HEX:
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "0x%lX\n", scmonactionreg);
+				break;
+				case SCMON_ACTION_INT:
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%ld\n", scmonactionreg);
+				break;
+				case SCMON_ACTION_UINT:
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%lu\n", scmonactionreg);
+				break;
+				case SCMON_ACTION_DEREFHEX:
+					kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "0x%lX\n", scmonderef);
+				break;
+				case SCMON_ACTION_DEREFINT:
+					kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%ld\n", scmonderef);
+				break;
+				case SCMON_ACTION_DEREFUINT:
+					kvm_read_guest_virt_system(scmonactionreg, &scmonderef, 8, vcpu, &error);
+					snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%lu\n", scmonderef);
+				break;
+				case SCMON_ACTION_DEREFSTR:
+					buffer = kmalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
+					if (buffer == NULL) {
+						printk("kvm:syscall_mon: could not allocate memory for string buffer\n");
+						continue;
+					}
+					kvm_read_guest_virt_system(scmonactionreg, buffer, NITRO_SCMON_ACTION_VALUE_MAX_SIZE, vcpu, &error);
+					buffer[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1] = '\0';
+					len = snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s\n", buffer);
+					kfree(buffer);
+				break;
+			}
+
+			// check for truncation
+			if (len >= NITRO_SCMON_ACTION_VALUE_MAX_SIZE-2) {
+				action_value[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-2] = '\n';
+				action_value[NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1] = '\0';
+			}
+
+			strlcat(output_line, action_value, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1);
 			//Proc Output
 			//nitro_output_append(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1);
 			printk(output_line);
-
-			vcpu->kvm->nitro_data.singlestep.need_exit_to_qemu = 1;
 		}
 
 		current_rule = current_rule->next;
@@ -473,9 +350,8 @@ int scmon_list_rules(char *buffer, unsigned int buffer_length) {
 	return 0;
 }
 
-/*
 int scmon_start(struct kvm *kvm, int64_t idt_index,char* syscall_reg) {
-	start_nitro(kvm, idt_index, syscall_reg, 1);
+	start_syscall_trace(kvm, idt_index, syscall_reg, 1);
 	return 0;
 }
 
@@ -483,4 +359,3 @@ int scmon_stop(struct kvm *kvm) {
 	stop_syscall_trace(kvm);
 	return 0;
 }
-*/

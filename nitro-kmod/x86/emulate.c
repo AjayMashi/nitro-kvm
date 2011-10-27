@@ -992,7 +992,7 @@ static int write_segment_descriptor(struct x86_emulate_ctxt *ctxt,
 	return ret;
 }
 
-int load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
+static int load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
 				   struct x86_emulate_ops *ops,
 				   u16 selector, int seg)
 {
@@ -1795,8 +1795,8 @@ emulate_sysenter(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 
 	setup_syscalls_segments(ctxt, ops, &cs, &ss);
 
-	if(ctxt->vcpu->kvm->nitro_data.running){
-		msr_data=ctxt->vcpu->kvm->nitro_data.sysenter_cs_val;
+	if(ctxt->vcpu->kvm->sctd.running){
+		msr_data=ctxt->vcpu->kvm->sctd.sysenter_cs_val;
 	}
 	else {
 		ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);
@@ -1868,8 +1868,8 @@ emulate_sysexit(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 	cs.dpl = 3;
 	ss.dpl = 3;
 
-	if(ctxt->vcpu->kvm->nitro_data.running){
-		msr_data=ctxt->vcpu->kvm->nitro_data.sysenter_cs_val;
+	if(ctxt->vcpu->kvm->sctd.running){
+		msr_data=ctxt->vcpu->kvm->sctd.sysenter_cs_val;
 	}
 	else {
 		ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);

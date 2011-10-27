@@ -478,7 +478,7 @@ static struct kvm *kvm_create_vm(void)
 	spin_lock(&kvm_lock);
 	list_add(&kvm->vm_list, &vm_list);
 	spin_unlock(&kvm_lock);
-	nitro_kvm_init(kvm);
+	sctrace_kvm_init(kvm);
 out:
 	return kvm;
 
@@ -534,8 +534,6 @@ static void kvm_destroy_vm(struct kvm *kvm)
 {
 	int i;
 	struct mm_struct *mm = kvm->mm;
-
-	nitro_kvm_exit(kvm);
 
 	kvm_arch_sync_events(kvm);
 	spin_lock(&kvm_lock);
@@ -2434,7 +2432,7 @@ IF_ANON_INODES_DOES_REFCOUNTS(	kvm_vcpu_fops.owner = module;)
 
 	kvm_init_debug();
 
-	nitro_mod_init();
+	sctrace_mod_init();
 
 	printk("loaded kvm module (kvm-kmod-2.6.37)\n");
 
@@ -2475,7 +2473,7 @@ EXPORT_SYMBOL_GPL(kvm_init);
 
 void kvm_exit(void)
 {
-	nitro_mod_exit();
+	sctrace_mod_exit();
 	kvm_exit_debug();
 	misc_deregister(&kvm_dev);
 	kmem_cache_destroy(kvm_vcpu_cache);

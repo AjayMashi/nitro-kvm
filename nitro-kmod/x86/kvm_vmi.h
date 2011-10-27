@@ -39,9 +39,6 @@ struct kvm_scmon_str {
 #define KVM_ADD_SCMON_RULE		_IOW(KVMIO, 0xF6, struct kvm_scmon_rule)
 #define KVM_REMOVE_SCMON_RULE	_IOW(KVMIO, 0xF7, long)
 
-#define KVM_START_SCSINGLESTEP	_IO(KVMIO, 0xF8)
-#define KVM_STOP_SCSINGLESTEP	_IO(KVMIO, 0xF9)
-
 
 
 

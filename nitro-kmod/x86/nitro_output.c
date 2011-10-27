@@ -5,18 +5,15 @@
  *      Author: fensterer
  */
 #include "nitro_output.h"
-// NOTE: nitro_output.h includes <linux/kvm_host.h>
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
+#include <linux/kvm_host.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
 #include <linux/list.h>
 
 #define NITRO_OUTPUT_LIST_MAX_LENGTH 8192
 #define NITRO_OUTPUT_LIST_ENTRY_MAX_LENGTH 256
-
-extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
-extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 
 /**
  * Initialize Output-List
@@ -166,116 +163,6 @@ int nitro_output_append(char *string, int string_length) {
 
 	mutex_unlock(&nitro_output_lock);
 	wake_up_interruptible_poll(&nitro_output_wait, POLLIN);
-
-	return 0;
-}
-
-/*
- * KIRSCH: I wrote several debug print functions which I use
- * to verify the results of certain kvm_functions(). Maybe someone
- * else finds them useful. (There are more sophisticated ways to
- * realize this, I know, but the dirty method is enough for now.)
- */
-int nitro_output_print_idt_entries(struct kvm_vcpu *vcpu) {
-
-	struct kvm_sregs sregs;
-	u8 *idt;
-	u32 error, i;
-
-	if (vcpu == NULL) return -1;
-
-	kvm_arch_vcpu_ioctl_get_sregs(vcpu, &sregs);
-
-	idt = kmalloc(sregs.idt.limit + 1, GFP_KERNEL);
-	memset(idt, 0, sregs.idt.limit + 1);
-	kvm_read_guest_virt_system(
-			sregs.idt.base,
-			idt,
-			(unsigned int)(sregs.idt.limit + 1),
-			vcpu,
-			&error);
-
-	for (i = 0; i < (sregs.idt.limit >> 3) - 1; i++) {
-		printk("idt-entry 0x%04X: base_low: 0x%04X selector: 0x%04X zero: 0x%02X flags: 0x%02X base_hi: 0x%04X\n",
-				i,
-				*(u16*)(idt + 0 + i * 8),
-				*(u16*)(idt + 2 + i * 8),
-				*(u8*) (idt + 3 + i * 8),
-				*(u8*) (idt + 4 + i * 8),
-				*(u16*)(idt + 6 + i * 8));
-	}
-
-	kfree(idt);
-
-	return 0;
-}
-
-int nitro_output_print_gdt_entries(struct kvm_vcpu *vcpu) {
-
-	struct kvm_sregs sregs;
-	u8 *gdt;
-	u32 error, i;
-
-	if (vcpu == NULL) return -1;
-
-	kvm_arch_vcpu_ioctl_get_sregs(vcpu, &sregs);
-
-	gdt = kmalloc(sregs.gdt.limit + 1, GFP_KERNEL);
-	memset(gdt, 0, sregs.gdt.limit + 1);
-	kvm_read_guest_virt_system(
-			sregs.gdt.base,
-			gdt,
-			(unsigned int)(sregs.gdt.limit + 1),
-			vcpu,
-			&error);
-
-	for (i = 0; i < (sregs.gdt.limit >> 3) - 1; i++) {
-		printk("gdt-entry 0x%04X: limit_low: 0x%04X base_low: 0x%04X base_mid: 0x%02X access: 0x%02X attr: 0x%02X base_high: 0x%02X\n",
-				i,
-				*(u16*)(gdt + 0 + i * 8),
-				*(u16*)(gdt + 2 + i * 8),
-				*(u8*) (gdt + 4 + i * 8),
-				*(u8*) (gdt + 5 + i * 8),
-				*(u8*) (gdt + 6 + i * 8),
-				*(u8*) (gdt + 7 + i * 8));
-		}
-
-	kfree(gdt);
-
-	return 0;
-}
-
-/* Pretty much the same as the output of x /20x 0xaddress of the qemu
- * monitor, but this one can be triggered at any time from within the code.
- * IMPORTANT: 16d BYTES PER LINE!!
- */
-int nitro_output_hexdump(u8 *data, int lines, __u64 optionalPrintAddress) {
-	int i = 0;
-
-	// if no address is given, assume the virtual address of the data should be taken
-	if (optionalPrintAddress == 0) optionalPrintAddress = (__u64) data;
-	if (data == NULL) return -1;
-
-	for (i = 0; i < lines; i++) {
-		printk("0x%08llX    %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
-				optionalPrintAddress + 16 * i,
-				*(data + i * 16 + 0),
-				*(data + i * 16 + 1),
-				*(data + i * 16 + 2),
-				*(data + i * 16 + 3),
-				*(data + i * 16 + 4),
-				*(data + i * 16 + 5),
-				*(data + i * 16 + 6),
-				*(data + i * 16 + 7),
-				*(data + i * 16 + 8),
-				*(data + i * 16 + 9),
-				*(data + i * 16 + 10),
-				*(data + i * 16 + 11),
-				*(data + i * 16 + 12),
-				*(data + i * 16 + 13),
-				*(data + i * 16 + 14),
-				*(data + i * 16 + 15));
-	}
 
 	return 0;
 }

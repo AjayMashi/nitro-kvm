@@ -418,12 +418,6 @@ static inline bool cpu_has_vmx_ept(void)
 		SECONDARY_EXEC_ENABLE_EPT;
 }
 
-static inline bool cpu_has_vmx_dtr(void)
-{
-	return vmcs_config.cpu_based_2nd_exec_ctrl &
-		SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
-}
-
 static inline bool cpu_has_vmx_unrestricted_guest(void)
 {
 	return vmcs_config.cpu_based_2nd_exec_ctrl &
@@ -692,7 +686,7 @@ static void update_exception_bitmap(struct kvm_vcpu *vcpu)
 
 	eb = (1u << PF_VECTOR) | (1u << UD_VECTOR) | (1u << MC_VECTOR) |
 	     (1u << NM_VECTOR) | (1u << DB_VECTOR);
-	if (vcpu->kvm->nitro_data.running) {
+	if (vcpu->kvm->sctd.running) {
 		eb |= 1u << GP_VECTOR;
 	}
 	if ((vcpu->guest_debug &
@@ -1498,7 +1492,7 @@ static __init int setup_vmcs_config(struct vmcs_config *vmcs_conf)
 			SECONDARY_EXEC_WBINVD_EXITING |
 			SECONDARY_EXEC_ENABLE_VPID |
 			SECONDARY_EXEC_ENABLE_EPT |
-//			SECONDARY_EXEC_DESCRIPT_TBL_EXITING |
+			//SECONDARY_EXEC_DESCRIPT_TBL_EXITING |
 			SECONDARY_EXEC_UNRESTRICTED_GUEST |
 			SECONDARY_EXEC_PAUSE_LOOP_EXITING |
 			SECONDARY_EXEC_RDTSCP;
@@ -2577,8 +2571,7 @@ static int vmx_vcpu_setup(struct vcpu_vmx *vmx)
 
 	if (cpu_has_secondary_exec_ctrls()) {
 		exec_control = vmcs_config.cpu_based_2nd_exec_ctrl;
-		//if (cpu_has_vmx_dtr())
-		//	exec_control |= SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
+		//exec_control |= SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
 		if (!vm_need_virtualize_apic_accesses(vmx->vcpu.kvm))
 			exec_control &=
 				~SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES;
@@ -3037,8 +3030,6 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 	u32 vect_info;
 	enum emulation_result er;
 
-	int ret; // <! temporary variable
-
 	vect_info = vmx->idt_vectoring_info;
 	intr_info = vmcs_read32(VM_EXIT_INTR_INFO);
 
@@ -3069,10 +3060,6 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		er = emulate_instruction(vcpu, 0, 0, EMULTYPE_TRAP_UD);
 		if (er != EMULATE_DONE)
 			kvm_queue_exception(vcpu, UD_VECTOR);
-		if(nitro_check_singlestep(vcpu)){
-			//printk("kvm:singlestep returning to qemu after emulate_instruction()\n");
-			return 0;
-		}
 		return 1;
 	}
 
@@ -3131,12 +3118,7 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
 		kvm_run->ex.exception = ex_no;
 		kvm_run->ex.error_code = error_code;
-		ret = handle_gp(vcpu, kvm_run);
-		if(nitro_check_singlestep(vcpu)){
-			//printk("kvm:singlestep returning to qemu after handle_gp()\n");
-			return 0;
-		}
-		return ret;
+		return handle_gp(vcpu, kvm_run);
 		break;
 	default:
 		printk("kvm:Unknown Exception trapped\n");
@@ -3742,8 +3724,8 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_VMON]                    = handle_vmx_insn,
 	[EXIT_REASON_TPR_BELOW_THRESHOLD]     = handle_tpr_below_threshold,
 	[EXIT_REASON_APIC_ACCESS]             = handle_apic_access,
-	[EXIT_REASON_GDTR_IDTR_ACCESS]		  = handle_dtr_access,
-	[EXIT_REASON_LDTR_TR_ACCESS]		  = handle_dtr_access,
+	//[EXIT_REASON_GDTR_IDTR_ACCESS]		  = handle_dtr_access,
+	//[EXIT_REASON_LDTR_TR_ACCESS]		  = handle_dtr_access,
 	[EXIT_REASON_WBINVD]                  = handle_wbinvd,
 	[EXIT_REASON_XSETBV]                  = handle_xsetbv,
 	[EXIT_REASON_TASK_SWITCH]             = handle_task_switch,

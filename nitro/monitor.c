@@ -2353,31 +2353,6 @@ static void do_remove_scmon_rule(Monitor *mon, const QDict *qdict) {
 	}
 }
 
-static void do_start_scsinglestep(Monitor *mon) {
-
-	vm_stop(EXCP_INTERRUPT);
-
-	if (kvm_vm_ioctl(kvm_state, KVM_START_SCSINGLESTEP)) {
-		monitor_printf(mon,
-				"Error starting syscall singlestep mode.\n");
-	}
-
-	vm_start();
-}
-
-
-static void do_stop_scsinglestep(Monitor *mon) {
-
-	vm_stop(EXCP_INTERRUPT);
-
-	if (kvm_vm_ioctl(kvm_state, KVM_STOP_SCSINGLESTEP)) {
-		monitor_printf(mon,
-				"Error stopping syscall singlestep mode.\n");
-	}
-
-	vm_start();
-}
-
 static void do_stop_sctrace(Monitor *mon) {
 
 	vm_stop(EXCP_INTERRUPT);
@@ -2500,10 +2475,7 @@ static int kvm_reg_str_to_reg_num(const char* reg_str) {
 	}
 	else if (strncmp(reg_str, "rdi", 3) == 0) {
 		reg = 7;
-	}else if (strncmp(reg_str, "any", 3) == 0){
-		reg = 42;
 	}
-
 
 	return reg;
 }
@@ -2521,7 +2493,7 @@ static void do_add_scmon_rule(Monitor *mon, const QDict *qdict) {
 	r.action = sctrace_action_str_to_action_num(action_str);
 	r.action_reg_offset = qdict_get_int(qdict, "action_reg_offset");
 
-	if ((int)r.cond_reg < 0 || (int)r.action_reg < 0 || (int)r.action < 0) {
+	if (r.cond_reg < 0 || r.action_reg < 0 || r.action < 0) {
 		monitor_printf(mon, "Could not add syscall monitoring rule. Check your parameters.\n");
 		return;
 	}
