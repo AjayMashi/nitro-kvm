@@ -9,6 +9,90 @@ STEXI
 @table @option
 ETEXI
 
+	{
+		.name		= "block_int",
+		.args_type	= "interrupt:i",
+		.params     = "interrupt",
+		.help       = "block an interrupt",
+        .mhandler.cmd = do_block_int,
+	},
+	
+STEXI
+@item block_int @var{interrupt}
+@findex block_int
+Block the interrupt specified by @var{interrupt}.
+ETEXI
+
+	{
+		.name		= "unblock_int",
+		.args_type	= "interrupt:i",
+		.params     = "interrupt",
+		.help       = "unblock an interrupt",
+        .mhandler.cmd = do_unblock_int,
+	},
+	
+STEXI
+@item unblock_int @var{interrupt}
+@findex unblock_int
+Unblock the interrupt specified by @var{interrupt}. This only works if @var{interrupt} has been previously blocked.
+ETEXI
+
+	{
+		.name		= "warn_int",
+		.args_type	= "interrupt:i",
+		.params     = "interrupt",
+		.help       = "warn on an interrupt",
+        .mhandler.cmd = do_warn_int,
+	},
+	
+STEXI
+@item warn_int @var{interrupt}
+@findex warn_int
+Warn when the interrupt specified by @var{interrupt} is used.
+ETEXI
+
+	{
+		.name		= "unwarn_int",
+		.args_type	= "interrupt:i",
+		.params     = "interrupt",
+		.help       = "unwarn on an interrupt",
+        .mhandler.cmd = do_unwarn_int,
+	},
+	
+STEXI
+@item unwarn_int @var{interrupt}
+@findex unwarn_int
+Unset the warning for the interrupt specified by @var{interrupt}. This only works if @var{interrupt} has been previously warned.
+ETEXI
+
+	{
+		.name		= "block_sc",
+		.args_type	= "sc:i",
+		.params     = "syscall_nr",
+		.help       = "block a system call",
+        .mhandler.cmd = do_block_sc,
+	},
+	
+STEXI
+@item block_sc @var{sc}
+@findex block_sc
+Block the system call specified by @var{sc}.
+ETEXI
+
+	{
+		.name		= "unblock_sc",
+		.args_type	= "sc:i",
+		.params     = "syscall_nr",
+		.help       = "unblock a system call",
+        .mhandler.cmd = do_unblock_sc,
+	},
+	
+STEXI
+@item unblock_sc @var{sc}
+@findex unblock_sc
+Unblock the system call specified by @var{sc}. This only works if @var{sc} has been previously blocked.
+ETEXI
+
     {
         .name       = "help|?",
         .args_type  = "name:s?",

@@ -61,6 +61,7 @@
 #include "trace.h"
 #endif
 #include "ui/qemu-spice.h"
+#include "htfu-common.h"
 
 //#define DEBUG
 //#define DEBUG_COMPLETION
@@ -2840,6 +2841,60 @@ static void do_loadvm(Monitor *mon, const QDict *qdict)
     if (load_vmstate(name) == 0 && saved_vm_running) {
         vm_start();
     }
+}
+
+static void do_block_int(Monitor *mon, const QDict *qdict){
+	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_BLOCK_INT, &interrupt))
+		monitor_printf(mon,"Error blocking interrupt. See system log for further details.\n");
+	vm_start();
+}
+
+static void do_unblock_int(Monitor *mon, const QDict *qdict){
+	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_UNBLOCK_INT, &interrupt))
+		monitor_printf(mon,"Error unblocking interrupt. See system log for further details.\n");
+	vm_start();
+}
+
+static void do_warn_int(Monitor *mon, const QDict *qdict){
+	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_WARN_INT, &interrupt))
+		monitor_printf(mon,"Error setting warning for interrupt. See system log for further details.\n");
+	vm_start();
+}
+
+static void do_unwarn_int(Monitor *mon, const QDict *qdict){
+	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_UNWARN_INT, &interrupt))
+		monitor_printf(mon,"Error unsetting warning for interrupt. See system log for further details.\n");
+	vm_start();
+}
+
+static void do_block_sc(Monitor *mon, const QDict *qdict){
+	uint32_t sc_nr = (uint32_t) qdict_get_int(qdict, "sc");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_BLOCK_SC, &sc_nr))
+		monitor_printf(mon,"Error blocking system call. See system log for further details.\n");
+	vm_start();
+}
+
+static void do_unblock_sc(Monitor *mon, const QDict *qdict){
+	uint32_t sc_nr = (uint32_t) qdict_get_int(qdict, "sc");
+
+	vm_stop(VMSTOP_USER);
+	if(kvm_vm_ioctl(kvm_state, KVM_UNBLOCK_SC, &sc_nr))
+		monitor_printf(mon,"Error unblocking system call. See system log for further details.\n");
+	vm_start();
 }
 
 int monitor_get_fd(Monitor *mon, const char *fdname)
