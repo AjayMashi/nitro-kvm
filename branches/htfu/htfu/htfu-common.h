@@ -5,8 +5,8 @@
  *      Author: pfoh
  */
 
-#ifndef HTFU-COMMON_H_
-#define HTFU-COMMON_H_
+#ifndef HTFU_COMMON_H_
+#define HTFU_COMMON_H_
 
 #include <linux/ioctl.h>
 //#include <linux/kvm.h>
@@ -20,4 +20,4 @@
 
 
 
-#endif /* HTFU-COMMON_H_ */
+#endif /* HTFU_COMMON_H_ */
