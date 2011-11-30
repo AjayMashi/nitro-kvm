@@ -65,6 +65,8 @@
 #include "tss.h"
 #include "kvm_cache_regs.h"
 #include "x86.h"
+#include "htfu-common.h"
+#include "htfu.h"
 
 
 #include <linux/interrupt.h>
@@ -2488,6 +2490,60 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		if (copy_to_user(argp, &user_ns, sizeof(user_ns)))
 			goto out;
 		r = 0;
+		break;
+	}
+	case KVM_BLOCK_INT: {
+		uint32_t interrupt;
+
+		r = -EFAULT;
+		if(copy_from_user(&interrupt, argp, sizeof(interrupt)))
+			goto out;
+		r = htfu_block_int(interrupt);
+		break;
+	}
+	case KVM_UNBLOCK_INT: {
+		uint32_t interrupt;
+
+		r = -EFAULT;
+		if(copy_from_user(&interrupt, argp, sizeof(interrupt)))
+			goto out;
+		r = htfu_unblock_int(interrupt);
+		break;
+	}
+	case KVM_WARN_INT: {
+		uint32_t interrupt;
+
+		r = -EFAULT;
+		if(copy_from_user(&interrupt, argp, sizeof(interrupt)))
+			goto out;
+		r = htfu_warn_int(interrupt);
+		break;
+	}
+	case KVM_UNWARN_INT: {
+		uint32_t interrupt;
+
+		r = -EFAULT;
+		if(copy_from_user(&interrupt, argp, sizeof(interrupt)))
+			goto out;
+		r = htfu_unwarn_int(interrupt);
+		break;
+	}
+	case KVM_BLOCK_SC: {
+		uint32_t sc_nr;
+
+		r = -EFAULT;
+		if(copy_from_user(&sc_nr, argp, sizeof(sc_nr)))
+			goto out;
+		r = htfu_block_sc(sc_nr);
+		break;
+	}
+	case KVM_UNBLOCK_SC: {
+		uint32_t sc_nr;
+
+		r = -EFAULT;
+		if(copy_from_user(&sc_nr, argp, sizeof(sc_nr)))
+			goto out;
+		r = htfu_unblock_sc(sc_nr);
 		break;
 	}
 
