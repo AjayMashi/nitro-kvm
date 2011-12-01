@@ -57,6 +57,7 @@
  */
 
 #include "iodev.h"
+#include "htfu.h"
 
 #include <linux/kvm_host.h>
 #include <linux/kvm.h>
@@ -476,6 +477,7 @@ static struct kvm *kvm_create_vm(void)
 	spin_lock(&kvm_lock);
 	list_add(&kvm->vm_list, &vm_list);
 	spin_unlock(&kvm_lock);
+	htfu_init(kvm);
 out:
 	return kvm;
 
@@ -531,6 +533,8 @@ static void kvm_destroy_vm(struct kvm *kvm)
 {
 	int i;
 	struct mm_struct *mm = kvm->mm;
+
+	htfu_exit(kvm);
 
 	kvm_arch_sync_events(kvm);
 	spin_lock(&kvm_lock);
