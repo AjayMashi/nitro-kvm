@@ -213,6 +213,10 @@ struct kvm_memslots {
 					KVM_PRIVATE_MEM_SLOTS];
 };
 
+struct htfu_data{
+	int test;
+};
+
 struct kvm {
 	spinlock_t mmu_lock;
 	raw_spinlock_t requests_lock;
@@ -256,6 +260,8 @@ struct kvm {
 	unsigned long mmu_notifier_seq;
 	long mmu_notifier_count;
 #endif
+
+	struct htfu_data htfu_data;
 };
 
 /* The guest did something we don't support. */
