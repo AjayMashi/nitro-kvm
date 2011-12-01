@@ -2843,39 +2843,33 @@ static void do_loadvm(Monitor *mon, const QDict *qdict)
     }
 }
 
-static void do_block_int(Monitor *mon, const QDict *qdict){
+static void do_harden(Monitor *mon, const QDict *qdict){
 	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
 
 	vm_stop(VMSTOP_USER);
-	if(kvm_vm_ioctl(kvm_state, KVM_BLOCK_INT, &interrupt))
-		monitor_printf(mon,"Error blocking interrupt. See system log for further details.\n");
+	if(kvm_vm_ioctl(kvm_state, KVM_HARDEN, &interrupt))
+		monitor_printf(mon,"Error hardening system. See system log for further details.\n");
 	vm_start();
 }
 
-static void do_unblock_int(Monitor *mon, const QDict *qdict){
-	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
-
+static void do_unharden(Monitor *mon, const QDict *qdict){
 	vm_stop(VMSTOP_USER);
-	if(kvm_vm_ioctl(kvm_state, KVM_UNBLOCK_INT, &interrupt))
-		monitor_printf(mon,"Error unblocking interrupt. See system log for further details.\n");
+	if(kvm_vm_ioctl(kvm_state, KVM_UNHARDEN))
+		monitor_printf(mon,"Error unhardening. See system log for further details.\n");
 	vm_start();
 }
 
 static void do_warn_int(Monitor *mon, const QDict *qdict){
-	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
-
 	vm_stop(VMSTOP_USER);
-	if(kvm_vm_ioctl(kvm_state, KVM_WARN_INT, &interrupt))
-		monitor_printf(mon,"Error setting warning for interrupt. See system log for further details.\n");
+	if(kvm_vm_ioctl(kvm_state, KVM_WARN_INT))
+		monitor_printf(mon,"Error setting warning for interrupt-based system calls. See system log for further details.\n");
 	vm_start();
 }
 
 static void do_unwarn_int(Monitor *mon, const QDict *qdict){
-	uint32_t interrupt = (uint32_t) qdict_get_int(qdict, "interrupt");
-
 	vm_stop(VMSTOP_USER);
-	if(kvm_vm_ioctl(kvm_state, KVM_UNWARN_INT, &interrupt))
-		monitor_printf(mon,"Error unsetting warning for interrupt. See system log for further details.\n");
+	if(kvm_vm_ioctl(kvm_state, KVM_UNWARN_INT))
+		monitor_printf(mon,"Error unsetting warning for interrupt-based system calls. See system log for further details.\n");
 	vm_start();
 }
 

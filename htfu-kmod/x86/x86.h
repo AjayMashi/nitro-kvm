@@ -81,4 +81,10 @@ int kvm_inject_realmode_interrupt(struct kvm_vcpu *vcpu, int irq);
 
 void kvm_write_tsc(struct kvm_vcpu *vcpu, u64 data);
 
+int is_sysenter(struct kvm_vcpu *vcpu);
+int is_sysexit(struct kvm_vcpu *vcpu);
+int is_int(struct kvm_vcpu *vcpu);
+int is_syscall(struct kvm_vcpu *vcpu);
+int is_sysret(struct kvm_vcpu *vcpu);
+
 #endif

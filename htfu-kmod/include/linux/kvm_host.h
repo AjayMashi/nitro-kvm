@@ -214,7 +214,12 @@ struct kvm_memslots {
 };
 
 struct htfu_data{
-	int test;
+	int32_t hardened;
+	uint32_t idt_offset;
+	uint32_t dummy_idt_offset;
+	u64 sysenter_cs_val;
+	u64 efer_val;
+	uint16_t int_selector;
 };
 
 struct kvm {

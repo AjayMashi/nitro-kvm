@@ -76,6 +76,8 @@
 #include "x86.h"
 #include "tss.h"
 
+#include "htfu.h"
+
 /*
  * Opcode effective-address decode tables.
  * Note that we only emulate instructions that have at least one memory
@@ -1710,6 +1712,62 @@ emulate_syscall(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 }
 
 static int
+emulate_sysret(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
+{
+	struct decode_cache *c = &ctxt->decode;
+	struct kvm_desc_struct cs, ss;
+	u64 msr_data;
+	u16 cs_sel, ss_sel;
+
+	/* sysret is not available in real mode */
+	if (c->lock_prefix || ctxt->mode == X86EMUL_MODE_REAL
+		|| ctxt->mode == X86EMUL_MODE_VM86)
+		return -1;
+
+	// check CPL
+	if(kvm_x86_ops->get_cpl(ctxt->vcpu) != 0){
+		kvm_inject_gp(ctxt->vcpu, 0);
+		return -1;
+	}
+
+	// check is RCX is is canonical form
+	if(((ctxt->vcpu->arch.regs[VCPU_REGS_RCX]&0xFFFF800000000000) != 0xFFFF800000000000) &&
+			((ctxt->vcpu->arch.regs[VCPU_REGS_RCX]&0x00007FFFFFFFFFFF) != ctxt->vcpu->arch.regs[VCPU_REGS_RCX])){
+		kvm_inject_gp(ctxt->vcpu, 0);
+		return -1;
+	}
+
+	setup_syscalls_segments(ctxt, ops, &cs, &ss);
+	ops->get_msr(ctxt->vcpu, MSR_STAR, &msr_data);
+	msr_data >>= 48;
+
+	if (is_long_mode(ctxt->vcpu)) {
+#ifdef CONFIG_X86_64
+		ctxt->eflags = ctxt->vcpu->arch.regs[VCPU_REGS_R11];
+#endif
+		cs_sel = (u16)((msr_data+16) | 0x0003);
+		cs.d = 0;
+		cs.l = 1;
+	}
+	else{
+		cs_sel = (u16)(msr_data | 0x0003);
+	}
+	cs.dpl = 0x3;
+
+	ss_sel = (u16)(msr_data+8);
+	ss.dpl = 0x3;
+
+	ops->set_cached_descriptor(&cs, VCPU_SREG_CS, ctxt->vcpu);
+	ops->set_segment_selector(cs_sel, VCPU_SREG_CS, ctxt->vcpu);
+	ops->set_cached_descriptor(&ss, VCPU_SREG_SS, ctxt->vcpu);
+	ops->set_segment_selector(ss_sel, VCPU_SREG_SS, ctxt->vcpu);
+
+	c->eip = ctxt->vcpu->arch.regs[VCPU_REGS_RCX];
+
+	return 0;
+}
+
+static int
 emulate_sysenter(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 {
 	struct decode_cache *c = &ctxt->decode;
@@ -1731,9 +1789,16 @@ emulate_sysenter(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 		return X86EMUL_PROPAGATE_FAULT;
 	}
 
+
 	setup_syscalls_segments(ctxt, ops, &cs, &ss);
 
-	ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);
+	if(ctxt->vcpu->kvm->htfu_data.hardened){
+		msr_data=ctxt->vcpu->kvm->htfu_data.sysenter_cs_val;
+	}
+	else {
+		ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);
+	}
+
 	switch (ctxt->mode) {
 	case X86EMUL_MODE_PROT32:
 		if ((msr_data & 0xfffc) == 0x0) {
@@ -1799,7 +1864,14 @@ emulate_sysexit(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 
 	cs.dpl = 3;
 	ss.dpl = 3;
-	ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);
+
+	if(ctxt->vcpu->kvm->htfu_data.hardened){
+		msr_data=ctxt->vcpu->kvm->htfu_data.sysenter_cs_val;
+	}
+	else {
+		ops->get_msr(ctxt->vcpu, MSR_IA32_SYSENTER_CS, &msr_data);
+	}
+
 	switch (usermode) {
 	case X86EMUL_MODE_PROT32:
 		cs_sel = (u16)(msr_data + 16);
@@ -2597,7 +2669,8 @@ static struct opcode opcode_table[256] = {
 static struct opcode twobyte_table[256] = {
 	/* 0x00 - 0x0F */
 	N, GD(0, &group7), N, N,
-	N, D(ImplicitOps), D(ImplicitOps | Priv), N,
+	//N, D(ImplicitOps), D(ImplicitOps | Priv), N,
+	N, D(ImplicitOps), D(ImplicitOps | Priv), D(ImplicitOps | Priv),
 	D(ImplicitOps | Priv), D(ImplicitOps | Priv), N, N,
 	N, D(ImplicitOps | ModRM), N, N,
 	/* 0x10 - 0x1F */
@@ -3596,6 +3669,9 @@ twobyte_insn:
 		break;
 	case 0x05: 		/* syscall */
 		rc = emulate_syscall(ctxt, ops);
+		break;
+	case 0x07: 		/* sysret */
+		rc = emulate_sysret(ctxt, ops);
 		break;
 	case 0x06:
 		emulate_clts(ctxt->vcpu);
