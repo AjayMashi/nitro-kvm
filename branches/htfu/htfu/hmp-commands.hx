@@ -10,59 +10,59 @@ STEXI
 ETEXI
 
 	{
-		.name		= "block_int",
+		.name		= "harden",
 		.args_type	= "interrupt:i",
 		.params     = "interrupt",
-		.help       = "block an interrupt",
-        .mhandler.cmd = do_block_int,
+		.help       = "enable hardening",
+        .mhandler.cmd = do_harden,
 	},
 	
 STEXI
-@item block_int @var{interrupt}
-@findex block_int
-Block the interrupt specified by @var{interrupt}.
+@item harden @var{interrupt}
+@findex harden
+Harden the system and pass @var{interrupt} as the system call interrupt.
 ETEXI
 
 	{
-		.name		= "unblock_int",
-		.args_type	= "interrupt:i",
-		.params     = "interrupt",
-		.help       = "unblock an interrupt",
-        .mhandler.cmd = do_unblock_int,
+		.name		= "unharden",
+		.args_type	= "",
+		.params     = "",
+		.help       = "unharden the system",
+        .mhandler.cmd = do_unharden,
 	},
 	
 STEXI
-@item unblock_int @var{interrupt}
-@findex unblock_int
-Unblock the interrupt specified by @var{interrupt}. This only works if @var{interrupt} has been previously blocked.
+@item unharden
+@findex unharden
+Unharden the system.
 ETEXI
 
 	{
 		.name		= "warn_int",
-		.args_type	= "interrupt:i",
-		.params     = "interrupt",
+		.args_type	= "",
+		.params     = "",
 		.help       = "warn on an interrupt",
         .mhandler.cmd = do_warn_int,
 	},
 	
 STEXI
-@item warn_int @var{interrupt}
+@item warn_int
 @findex warn_int
-Warn when the interrupt specified by @var{interrupt} is used.
+Warn when the system call interrupt is used.
 ETEXI
 
 	{
 		.name		= "unwarn_int",
-		.args_type	= "interrupt:i",
-		.params     = "interrupt",
+		.args_type	= "",
+		.params     = "",
 		.help       = "unwarn on an interrupt",
         .mhandler.cmd = do_unwarn_int,
 	},
 	
 STEXI
-@item unwarn_int @var{interrupt}
+@item unwarn_int
 @findex unwarn_int
-Unset the warning for the interrupt specified by @var{interrupt}. This only works if @var{interrupt} has been previously warned.
+Unset the warning for the interrupt-based system calls.
 ETEXI
 
 	{

@@ -623,6 +623,8 @@ struct kvm_x86_ops {
 	void (*write_tsc_offset)(struct kvm_vcpu *vcpu, u64 offset);
 
 	const struct trace_print_flags *exit_reasons_str;
+
+	void (*update_trap_exceptions)(struct kvm_vcpu *vcpu);
 };
 
 extern struct kvm_x86_ops *kvm_x86_ops;

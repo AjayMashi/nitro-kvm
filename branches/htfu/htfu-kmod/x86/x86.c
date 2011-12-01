@@ -3540,44 +3540,26 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		r = 0;
 		break;
 	}
-	case KVM_BLOCK_INT: {
+	case KVM_HARDEN: {
 		uint32_t interrupt;
 
 		r = -EFAULT;
 		if (copy_from_user(&interrupt, argp, sizeof(interrupt)))
 			goto out;
 
-		r = htfu_block_int(kvm, interrupt);
+		r = htfu_harden(kvm, interrupt);
 		break;
 	}
-	case KVM_UNBLOCK_INT: {
-		uint32_t interrupt;
-
-		r = -EFAULT;
-		if (copy_from_user(&interrupt, argp, sizeof(interrupt)))
-			goto out;
-
-		r = htfu_unblock_int(kvm, interrupt);
+	case KVM_UNHARDEN: {
+		r = htfu_unharden(kvm);
 		break;
 	}
 	case KVM_WARN_INT: {
-		uint32_t interrupt;
-
-		r = -EFAULT;
-		if (copy_from_user(&interrupt, argp, sizeof(interrupt)))
-			goto out;
-
-		r = htfu_warn_int(kvm, interrupt);
+		r = htfu_warn_int(kvm);
 		break;
 	}
 	case KVM_UNWARN_INT: {
-		uint32_t interrupt;
-
-		r = -EFAULT;
-		if (copy_from_user(&interrupt, argp, sizeof(interrupt)))
-			goto out;
-
-		r = htfu_unwarn_int(kvm, interrupt);
+		r = htfu_unwarn_int(kvm);
 		break;
 	}
 	case KVM_BLOCK_SC: {
@@ -3750,13 +3732,13 @@ static int kvm_read_guest_virt(gva_t addr, void *val, unsigned int bytes,
 					  error);
 }
 
-static int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes,
+int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes,
 			       struct kvm_vcpu *vcpu, u32 *error)
 {
 	return kvm_read_guest_virt_helper(addr, val, bytes, vcpu, 0, error);
 }
 
-static int kvm_write_guest_virt_system(gva_t addr, void *val,
+int kvm_write_guest_virt_system(gva_t addr, void *val,
 				       unsigned int bytes,
 				       struct kvm_vcpu *vcpu,
 				       u32 *error)
@@ -4405,6 +4387,117 @@ static bool reexecute_instruction(struct kvm_vcpu *vcpu, gva_t gva)
 		return true;
 
 	return false;
+}
+
+int is_sysenter(struct kvm_vcpu *vcpu) {
+	//This is more or less a copy and paste of the emulate_instruction function preamble,
+	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
+	//preamble for significant changes and reflect them here
+
+	kvm_clear_exception_queue(vcpu);
+	cache_all_regs(vcpu);
+
+ 	init_emulate_ctxt(vcpu);
+ 	vcpu->arch.emulate_ctxt.interruptibility = 0;
+ 	vcpu->arch.emulate_ctxt.exception = -1;
+ 	vcpu->arch.emulate_ctxt.perm_ok = false;
+
+ 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
+
+ 	if (vcpu->arch.emulate_ctxt.decode.twobyte
+ 			&& vcpu->arch.emulate_ctxt.decode.b == 0x34) {
+ 		return 1;
+ 	}
+ 	return 0;
+}
+
+int is_sysexit(struct kvm_vcpu *vcpu) {
+	//This is more or less a copy and paste of the emulate_instruction function preamble,
+	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
+	//preamble for significant changes and reflect them here
+
+	kvm_clear_exception_queue(vcpu);
+	cache_all_regs(vcpu);
+
+ 	init_emulate_ctxt(vcpu);
+ 	vcpu->arch.emulate_ctxt.interruptibility = 0;
+ 	vcpu->arch.emulate_ctxt.exception = -1;
+ 	vcpu->arch.emulate_ctxt.perm_ok = false;
+
+ 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
+
+ 	if (vcpu->arch.emulate_ctxt.decode.twobyte
+ 			&& vcpu->arch.emulate_ctxt.decode.b == 0x35){
+ 		return 1;
+ 	}
+ 	return 0;
+}
+
+int is_syscall(struct kvm_vcpu *vcpu) {
+	//This is more or less a copy and paste of the emulate_instruction function preamble,
+	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
+	//preamble for significant changes and reflect them here
+
+	kvm_clear_exception_queue(vcpu);
+	cache_all_regs(vcpu);
+
+ 	init_emulate_ctxt(vcpu);
+ 	vcpu->arch.emulate_ctxt.interruptibility = 0;
+ 	vcpu->arch.emulate_ctxt.exception = -1;
+ 	vcpu->arch.emulate_ctxt.perm_ok = false;
+
+ 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
+
+ 	if (vcpu->arch.emulate_ctxt.decode.twobyte
+ 			&& vcpu->arch.emulate_ctxt.decode.b == 0x05){
+ 		return 1;
+ 	}
+ 	return 0;
+}
+EXPORT_SYMBOL_GPL(is_syscall);
+
+int is_sysret(struct kvm_vcpu *vcpu) {
+	//This is more or less a copy and paste of the emulate_instruction function preamble,
+	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
+	//preamble for significant changes and reflect them here
+
+	kvm_clear_exception_queue(vcpu);
+	cache_all_regs(vcpu);
+
+ 	init_emulate_ctxt(vcpu);
+ 	vcpu->arch.emulate_ctxt.interruptibility = 0;
+ 	vcpu->arch.emulate_ctxt.exception = -1;
+ 	vcpu->arch.emulate_ctxt.perm_ok = false;
+
+ 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
+
+ 	if (vcpu->arch.emulate_ctxt.decode.twobyte
+ 			&& vcpu->arch.emulate_ctxt.decode.b == 0x07){
+ 		return 1;
+ 	}
+ 	return 0;
+}
+
+int is_int(struct kvm_vcpu *vcpu) {
+ 	//This is more or less a copy and paste of the emulate_instruction function preamble,
+ 	//if there are issues recognizing sysenter/sysreturn instructions, check emulate_instruction
+ 	//preamble for significant changes and reflect them here
+
+ 	kvm_clear_exception_queue(vcpu);
+ 	cache_all_regs(vcpu);
+
+ 	init_emulate_ctxt(vcpu);
+ 	vcpu->arch.emulate_ctxt.interruptibility = 0;
+ 	vcpu->arch.emulate_ctxt.exception = -1;
+ 	vcpu->arch.emulate_ctxt.perm_ok = false;
+
+ 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
+
+ 	if (!vcpu->arch.emulate_ctxt.decode.twobyte
+ 			&& vcpu->arch.emulate_ctxt.decode.b == 0xcd) {
+ 		return 1;
+ 	}
+ 	return 0;
 }
 
 int emulate_instruction(struct kvm_vcpu *vcpu,

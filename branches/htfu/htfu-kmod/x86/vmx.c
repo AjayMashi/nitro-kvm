@@ -58,6 +58,7 @@
 
 #include "irq.h"
 #include "mmu.h"
+#include "htfu.h"
 
 #include <linux/kvm_host.h>
 #include <linux/module.h>
@@ -81,6 +82,7 @@
 #include <asm/xcr.h>
 
 #include "trace.h"
+
 
 #define __ex(x) __kvm_handle_fault_on_reboot(x)
 
@@ -684,6 +686,9 @@ static void update_exception_bitmap(struct kvm_vcpu *vcpu)
 
 	eb = (1u << PF_VECTOR) | (1u << UD_VECTOR) | (1u << MC_VECTOR) |
 	     (1u << NM_VECTOR) | (1u << DB_VECTOR);
+	if(vcpu->kvm->htfu_data.hardened){
+		eb |= 1u << GP_VECTOR;
+	}
 	if ((vcpu->guest_debug &
 	     (KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_SW_BP)) ==
 	    (KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_SW_BP))
@@ -3029,8 +3034,11 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 	if (is_machine_check(intr_info))
 		return handle_machine_check(vcpu);
 
+//	if ((vect_info & VECTORING_INFO_VALID_MASK) &&
+//	    !is_page_fault(intr_info)) {
 	if ((vect_info & VECTORING_INFO_VALID_MASK) &&
-	    !is_page_fault(intr_info)) {
+		!is_page_fault(intr_info) && ((intr_info & INTR_INFO_VECTOR_MASK) != GP_VECTOR)) {
+		printk(KERN_ERR "%s: unexpected, vectoring info 0x%x intr info 0x%x\n", __func__, vect_info, intr_info);
 		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
 		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_SIMUL_EX;
 		vcpu->run->internal.ndata = 2;
@@ -3047,7 +3055,11 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		return 1;
 	}
 
-	if (is_invalid_opcode(intr_info)) {
+	if (is_invalid_opcode(intr_info) && is_syscall(vcpu)){
+		htfu_handle_syscall(vcpu);
+		return 1;
+	}
+	else if (is_invalid_opcode(intr_info)) {
 		er = emulate_instruction(vcpu, 0, 0, EMULTYPE_TRAP_UD);
 		if (er != EMULATE_DONE)
 			kvm_queue_exception(vcpu, UD_VECTOR);
@@ -3105,7 +3117,15 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		kvm_run->debug.arch.pc = vmcs_readl(GUEST_CS_BASE) + rip;
 		kvm_run->debug.arch.exception = ex_no;
 		break;
+	case GP_VECTOR:
+		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
+		kvm_run->ex.exception = ex_no;
+		kvm_run->ex.error_code = error_code;
+		htfu_handle_gp(vcpu, kvm_run);
+		return 1;
+		break;
 	default:
+		printk("kvm:Unknown Exception trapped\n");
 		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
 		kvm_run->ex.exception = ex_no;
 		kvm_run->ex.error_code = error_code;
@@ -4376,6 +4396,8 @@ static struct kvm_x86_ops vmx_x86_ops = {
 	.adjust_tsc_offset = vmx_adjust_tsc_offset,
 
 	.set_tdp_cr3 = vmx_set_cr3,
+
+	.update_trap_exceptions = update_exception_bitmap,
 };
 
 static int __init vmx_init(void)
