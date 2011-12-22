@@ -3974,7 +3974,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	dpl = int_gate.seg_selector & 3;
 	cpl = ops->cpl(ctxt->vcpu);
 
-	if (((int_gate.flags & X86_IDT_ENTRY_DPL) >> 13) < cpl && ctxt->vcpu->arch.interrupt.nr != 0xef) {
+	if (((int_gate.flags & X86_IDT_ENTRY_DPL) >> 13) < cpl && c->b == 0xcd /*ctxt->vcpu->arch.interrupt.nr != 0xef*/) {
 		/* privileges do not suffice to call the gate */
 		DEBUG_PRINT("critical: access to int gate denied.\n")
 		kvm_clear_exception_queue(ctxt->vcpu);
@@ -4089,7 +4089,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 
 	DEBUG_PRINT("APIC INTERRUPT = %X\n", ctxt->vcpu->arch.apic->irr_pending/*kvm_apic_has_interrupt(ctxt->vcpu)*//*ctxt->vcpu->arch.apic->lapic_timer.pending.counter*/)
-	if (ctxt->vcpu->arch.interrupt.nr != 0xef /*c->b == 0xcd*//*kvm_apic_has_interrupt(ctxt->vcpu) == -1*/) {
+	if (/*ctxt->vcpu->arch.interrupt.nr != 0xef && !ctxt->vcpu->arch.apic->irr_pending*/c->b == 0xcd/*kvm_apic_has_interrupt(ctxt->vcpu) == -1*/) {
 		/* Only increase eip if the interrupt was triggered synchronously */
 		c->src.val = eip + 2;
 	} else {
@@ -4150,7 +4150,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* Needed for asynchronous interrupt handling */
 	ctxt->eip = c->eip;
 
-	ctxt->exception = -1;
 	//printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
 	return X86EMUL_CONTINUE;
 }
