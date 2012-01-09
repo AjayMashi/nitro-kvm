@@ -3936,6 +3936,28 @@ cannot_emulate:
 #define X86_IDT_ENTRY_CONFORMING			0x1 << 10
 #define X86_IDT_ENTRY_PRESENT				0x1 << 15
 
+/* Ugly 32bit arch specific push emulation. sucks. */
+int push_hacked(struct kvm_vcpu *vcpu, unsigned long value) {
+
+	u32 error;
+
+	/* decrease the value of esp by 4 */
+	kvm_register_write(
+			vcpu,
+			VCPU_REGS_RSP,
+			kvm_register_read(vcpu, VCPU_REGS_RSP) - sizeof(value)
+			);
+
+	/* write the new data on top of the stack */
+	kvm_write_guest_virt_system(
+			kvm_register_read(vcpu, VCPU_REGS_RSP),
+			&value,
+			sizeof(value),
+			vcpu,
+			error);
+
+	printk("Pushing %08X onto the stack. New ESP is %08X.\n", value, kvm_register_read(vcpu, VCPU_REGS_RSP));
+}
 
 int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		struct x86_emulate_ops *ops, int irq)
@@ -3967,20 +3989,20 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
-	/* if nitro is active and is using the *old method*, get the correct cs */
-	//if (ctxt->vcpu->kvm->nitro_data.running)
-	//	int_gate.seg_selector = ctxt->vcpu->kvm->nitro_data.orig_cs;
-
 	dpl = int_gate.seg_selector & 3;
 	cpl = ops->cpl(ctxt->vcpu);
 
-	if (((int_gate.flags & X86_IDT_ENTRY_DPL) >> 13) < cpl && c->b == 0xcd /*ctxt->vcpu->arch.interrupt.nr != 0xef*/) {
+	if (((int_gate.flags & X86_IDT_ENTRY_DPL) >> 13) < cpl) {
 		/* privileges do not suffice to call the gate */
-		DEBUG_PRINT("critical: access to int gate denied.\n")
-		kvm_clear_exception_queue(ctxt->vcpu);
-		kvm_clear_interrupt_queue(ctxt->vcpu);
-		emulate_gp(ctxt, 0);
-		return X86EMUL_PROPAGATE_FAULT;
+		if (c->b == 0xcd) {
+			DEBUG_PRINT("CRITICAL: access to int gate denied.\n")
+			kvm_clear_exception_queue(ctxt->vcpu);
+			kvm_clear_interrupt_queue(ctxt->vcpu);
+			emulate_gp(ctxt, 0);
+			return X86EMUL_PROPAGATE_FAULT;
+		} else {
+			DEBUG_PRINT("HACK: Allowing unprivileged access to int gate!\n")
+		}
 	}
 
 	if (!(int_gate.flags & X86_IDT_ENTRY_PRESENT)) {
@@ -4025,13 +4047,18 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 	/* NOTE: even if the intel doc dictates to load the stack segment before the code
 	 * segment, this is not a good idea when using kvm. In order to prevent it from
-	 * crashing due to privilege violations, we load the code segment before the stack
+	 * crashing due to access violations, we load the code segment before the stack
 	 * segment.
 	 */
 	DEBUG_PRINT("New code segment is 0x%04X\n", newCS)
 
 	ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
 	ops->set_segment_selector(newCS, VCPU_SREG_CS, ctxt->vcpu);
+
+	/* HACK: This is needed for proper stack handling when emulating push
+	 * instructions in asynchronous interrupts.
+	 */
+	ctxt->decode.op_bytes = sizeof(unsigned long);
 
 	/* Decide if a stack switch is needed */
 	if (dpl < cpl) {
@@ -4069,7 +4096,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		rc = writeback(ctxt, ops);
 		if (rc != X86EMUL_CONTINUE)
 			return rc;
-
 	}
 
 	c->src.val = eflags;
@@ -4086,9 +4112,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
-
-
-	DEBUG_PRINT("APIC INTERRUPT = %X\n", ctxt->vcpu->arch.apic->irr_pending/*kvm_apic_has_interrupt(ctxt->vcpu)*//*ctxt->vcpu->arch.apic->lapic_timer.pending.counter*/)
 	if (/*ctxt->vcpu->arch.interrupt.nr != 0xef && !ctxt->vcpu->arch.apic->irr_pending*/c->b == 0xcd/*kvm_apic_has_interrupt(ctxt->vcpu) == -1*/) {
 		/* Only increase eip if the interrupt was triggered synchronously */
 		c->src.val = eip + 2;
@@ -4106,35 +4129,25 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	 *
 	 */
 
-	/* Still not sure what to do with this one. Ignoring it seems to be
-	 * fine for now.
+	/* Error codes are used only for interrupts 0 - 31 thus not needed
+	 * for us.
 	 */
-/*
-	if (ctxt->vcpu->arch.exception.error_code != 4) {
-	c->src.val = ctxt->vcpu->arch.exception.error_code;
-		DEBUG_PRINT("Pushed ERROR CODE %08lX.\n", c->src.val)
-		emulate_push(ctxt, ops);
-		rc = writeback(ctxt, ops);
-		if (rc != X86EMUL_CONTINUE)
-			return rc;
-	}*/
+
 	/* Step 5: Loads the segment selector for the new code segment and
 	 * the new instruction pointer (from the interrupt gate or trap gate)
 	 * into the CS and EIP registers, respectively.
 	 */
 
-	offset = (((u32)int_gate.offset_high) << 16) | ((u32)int_gate.offset_low);
-
-	DEBUG_PRINT("Interrupt handler is at 0x%08X\n", offset)
-
-	c->dst.type = OP_NONE;
-	c->eip = offset;
+	/* This is where the intel doc and kvm differ. While intel dictates to load the
+	 * stack segment before the code segment, kvm faults due to unprivileged access
+	 * of the new stack when loading the stack segment first. So, nothing to do here,
+	 * SS and CS are allready loaded.
+	 */
 
 	/* Step 6: If the call is through an interrupt gate, clears the IF flag
 	 * in the EFLAGS register.
 	 */
 
-	/* disable interrupts */
 	if ((int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_32 ||
 		(int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_16)
 		ctxt->eflags &= ~EFLG_IF;
@@ -4145,7 +4158,14 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	 * level.
 	 */
 
+	offset = (((u32)int_gate.offset_high) << 16) | ((u32)int_gate.offset_low);
+	c->eip = offset;
+
+	DEBUG_PRINT("Interrupt handler is at 0x%08X\n", offset)
 	DEBUG_PRINT("Continuing at CPL %X\n", ops->cpl(ctxt->vcpu))
+
+	/* Prepare for writeback */
+	c->dst.type = OP_NONE;
 
 	/* Needed for asynchronous interrupt handling */
 	ctxt->eip = c->eip;

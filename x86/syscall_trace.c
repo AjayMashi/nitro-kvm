@@ -757,8 +757,6 @@ int handle_user_interrupt(struct kvm_vcpu *vcpu, u32 int_nr){
 */
 	printk("New code segment is 0x%04X\n", original_selector);
 
-	kvm_x86_ops->set_kernel(vcpu);
-
 
 	if (load_segment_descriptor(&(vcpu->arch.emulate_ctxt), vcpu->arch.emulate_ctxt.ops, original_selector, VCPU_SREG_CS)) {
 		printk("Failed to load new code segment!\n");
@@ -822,6 +820,7 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	int er;
 	u8 *stack_contents;
 
+
 	//printk("kvm:handle_gp: #GP trapped\n");
 
 	//x86_decode_insn(&vcpu->arch.emulate_ctxt);
@@ -840,7 +839,6 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 		}
 	}
 	else if (vcpu->arch.interrupt.pending && vcpu->arch.interrupt.nr > 31) {//interrupt
-	//else if (vcpu->arch.interrupt.pending && vcpu->arch.interrupt.nr == vcpu->kvm->nitro_data.idt_int_offset){
 		printk("trapped int 0x%X\n", vcpu->arch.interrupt.nr);
 		DEBUG_PRINT("begin_int_handling: EIP is now 0x%08lX.\n", kvm_register_read(vcpu, VCPU_REGS_RIP))
 		if (is_int(vcpu)) {
@@ -855,9 +853,11 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 			kvm_queue_exception_e(vcpu, GP_VECTOR, kvm_run->ex.error_code);
 		}
 		DEBUG_PRINT("Emulation returned %X.\n", er)
-		//printk("Stack contents:\n");
-		//kvm_read_guest_virt_system(kvm_register_read(vcpu, VCPU_REGS_RSP) - (8 * 16),stack_contents,16 * 16,vcpu,&er);
-		//nitro_output_hexdump(stack_contents, 16, kvm_register_read(vcpu, VCPU_REGS_RSP) - (8 * 16));
+		/*printk("Stack contents:\n");
+		stack_contents = kmalloc(16 * 16, 1);
+		kvm_read_guest_virt_system(kvm_register_read(vcpu, VCPU_REGS_RSP) - (8 * 16),stack_contents,16 * 16,vcpu,&er);
+		nitro_output_hexdump(stack_contents, 16, kvm_register_read(vcpu, VCPU_REGS_RSP) - (8 * 16));
+		kfree(stack_contents);*/
 		DEBUG_PRINT("end_int_handling: EIP is now 0x%08lX.\n", kvm_register_read(vcpu, VCPU_REGS_RIP))
 	}
 	else if (vcpu->arch.interrupt.pending) {
