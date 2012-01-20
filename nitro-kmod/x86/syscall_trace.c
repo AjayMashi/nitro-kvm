@@ -18,7 +18,7 @@
 #include "tss.h"
 
 #define DUM_SEG_SELECT 0xFFFF
-#undef SHADOW_IDT
+#define SHADOW_IDT
 
 extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
@@ -72,7 +72,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	struct kvm_vcpu *vcpu;
 
 #ifndef SHADOW_IDT
-	int idt_entry_size = 8; /* 8 if 32bit, 16 if 62bit */
+	int idt_entry_size = 8; /* 8 if 32bit, 16 if 64bit */
 #endif
 
 	printk("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg);
@@ -205,7 +205,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 				memset(kvm->nitro_data.shadow_idt.table,0,sregs.idt.limit + 1);
 				kvm_read_guest_virt_system(sregs.idt.base,kvm->nitro_data.shadow_idt.table,(unsigned int)(sregs.idt.limit + 1),vcpu,&error);
 			}
-			sregs.idt.limit=255;
+			sregs.idt.limit=32*8-1;
 			kvm_arch_vcpu_ioctl_set_sregs(vcpu,&sregs);
 		}
 	}
@@ -463,158 +463,6 @@ int print_trace_proxy(char prefix, struct kvm_vcpu *vcpu){
 	return ret;
 }
 
-
-
-/* Ugly 32bit arch specific push emulation. sucks. */
-int push(struct kvm_vcpu *vcpu, unsigned long value) {
-
-	u32 error;
-
-	/* decrease the value of esp by 4 */
-	kvm_register_write(
-			vcpu,
-			VCPU_REGS_RSP,
-			kvm_register_read(vcpu, VCPU_REGS_RSP) - sizeof(value)
-			);
-
-	/* write the new data on top of the stack */
-	kvm_write_guest_virt_system(
-			kvm_register_read(vcpu, VCPU_REGS_RSP),
-			&value,
-			sizeof(value),
-			vcpu,
-			&error);
-
-	return 0;
-}
-
-int handle_user_interrupt(struct kvm_vcpu *vcpu, u32 int_nr){
-	struct gate_descriptor int_gate;
-	struct kvm_sregs sregs;
-	struct kvm_regs regs;
-	u32 offset;
-
-	//struct kvm *kvm=vcpu->kvm;
-	u32 error;
-
-	unsigned long ss, esp, eflags, cs, eip;
-	struct tss_segment_32 tss_segment;
-	//int_nr=128;
-
-	kvm_arch_vcpu_ioctl_get_sregs(vcpu,&sregs);
-	kvm_arch_vcpu_ioctl_get_regs(vcpu,&regs);
-
-	/*
-	if(kvm->nitro_data.shadow_idt.table != NULL)
-		kfree(kvm->nitro_data.shadow_idt.table);
-	kvm->nitro_data.shadow_idt.table = kmalloc(sregs.idt.limit + 1,GFP_KERNEL);
-	memset(kvm->nitro_data.shadow_idt.table,0,sregs.idt.limit + 1);
-	kvm_read_guest_virt_system(sregs.idt.base,kvm->nitro_data.shadow_idt.table,(unsigned int)(sregs.idt.limit + 1),vcpu,&error);
-	*/
-
-	printk("kvm:handle_user_interrupt: int_nr=%u kvm->nitro_data.shadow_idt.limit=%u 8*int_nr=%u\n",int_nr,vcpu->kvm->nitro_data.shadow_idt.limit,8*int_nr);
-
-	//int_gate = (struct gate_descriptor *) vcpu->kvm->nitro_data.shadow_idt.table + (int_nr * 8);
-
-	nitro_output_print_gdt_entries(vcpu);
-	nitro_output_print_idt_entries(vcpu);
-
-	/* Okay, here we go. Let's try to keep as close as possible to the
-	 * Intel-Doc.
-	 */
-
-	/* Step 1:  Temporarily saves (internally) the current contents of the
-	 * SS, ESP, EFLAGS, CS, and EIP registers.
-	 */
-
-	ss = sregs.ss.selector;
-	esp = kvm_register_read(vcpu, VCPU_REGS_RSP);
-	eflags = vcpu->arch.emulate_ctxt.eflags;
-	cs = sregs.cs.selector;
-	eip = kvm_register_read(vcpu, VCPU_REGS_RIP);
-
-	/* Step 2: Loads the segment selector and stack pointer for the new stack
-	 * (that is, the stack for the privilege level being called) from the
-	 * TSS into the SS and ESP registers and switches to the new stack.
-	 */
-
-	printk("TSR is 0x%08LX.\n", sregs.tr.base);
-	printk("TSR limit is 0x%X.\n", sregs.tr.limit);
-
-	kvm_read_guest_virt_system(
-			sregs.tr.base,
-			&tss_segment,
-			sizeof (struct tss_segment_32),
-			vcpu,
-			&error);
-
-	printk("TSS contents:\n");
-	nitro_output_hexdump(
-			(u8*)&tss_segment,
-			sizeof(struct tss_segment_32) / 16,
-			sregs.tr.base);
-
-	printk("INT: switching to kernel stack!\n");
-	printk("ss0=0x%08X.\n", tss_segment.ss0);
-	printk("esp0=0x%08X.\n", tss_segment.esp0);
-	
-	/* Load the new stack segment */
-	vcpu->arch.emulate_ctxt.ops->set_segment_selector(tss_segment.ss0, VCPU_SREG_SS, vcpu);
-	load_segment_descriptor(&(vcpu->arch.emulate_ctxt), vcpu->arch.emulate_ctxt.ops, tss_segment.ss0, VCPU_SREG_SS);
-
-	/* Write the new stack pointer */
-	kvm_register_write(vcpu, VCPU_REGS_RSP, tss_segment.esp0);
-
-	/* Step 3: Pushes the temporarily saved SS, ESP, EFLAGS, CS, and
-	 * EIP values for the interrupted procedure’s stack onto the new stack.
-	 */
-
-	push(vcpu, ss);
-	push(vcpu, esp);
-	push(vcpu, eflags);
-	push(vcpu, cs);
-	push(vcpu, eip);
-
-	/* TODO: Is there any possibility to get the push emulation done
-	 * without an ugly helper function?
-	 */
-
-	/* Step 4: Pushes an error code on the new stack (if appropriate).
-	 *
-	 */
-
-	/* TODO: Zero? Nothing at all? */
-
-	/* Step 5: Loads the segment selector for the new code segment and
-	 * the new instruction pointer (from the interrupt gate or trap gate)
-	 * into the CS and EIP registers, respectively.
-	 */
-
-	kvm_read_guest_virt_system(sregs.idt.base + (int_nr * 8),&int_gate,8,vcpu,&error);
-	offset = (((u32)int_gate.offset_high) << 16) | ((u32)int_gate.offset_low);
-
-	/* load code segment */
-	load_segment_descriptor(&(vcpu->arch.emulate_ctxt), vcpu->arch.emulate_ctxt.ops, int_gate.seg_selector, VCPU_SREG_CS);
-
-	regs.rip = (__u64)offset;
-	kvm_arch_vcpu_ioctl_set_sregs(vcpu,&sregs);
-	kvm_arch_vcpu_ioctl_set_regs(vcpu,&regs);
-
-	/* Step 6: If the call is through an interrupt gate, clears the IF flag
-	 * in the EFLAGS register.
-	 */
-
-	vcpu->arch.emulate_ctxt.eflags &= ~bit(9);
-
-	/* Step 7: Begins execution of the handler procedure at the new privilege
-	 * level.
-	 */
-
-	printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
-
-	return 0;
-}
-
 int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	int er;
 	struct kvm_sregs sregs;
@@ -634,19 +482,19 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	}
 #ifdef SHADOW_IDT
 	else if(vcpu->arch.interrupt.pending && vcpu->arch.interrupt.nr > 31){//int shadow_idt
-		printk("kvm:handle_gp: trapped interrupt %d\n",(u32)vcpu->arch.interrupt.nr);
-		handle_user_interrupt(vcpu,vcpu->arch.interrupt.nr);
-		//if (is_int(vcpu)) {
-			//skip_emulated_inst??
-			/*er = emulate_instruction(vcpu, 0, 0, 0);
-			if (er != EMULATE_DONE){
-				kvm_clear_exception_queue(vcpu);
-				kvm_clear_interrupt_queue(vcpu);
-				kvm_queue_exception_e(vcpu,GP_VECTOR,kvm_run->ex.error_code);
-			}*/
-		//}
+		printk("trapped int 0x%X\n", vcpu->arch.interrupt.nr);
+		DEBUG_PRINT("begin_int_handling: EIP is now 0x%08lX.\n", kvm_register_read(vcpu, VCPU_REGS_RIP))
+		if (is_int(vcpu)) {
+			er = emulate_instruction(vcpu, 0, 0, 0);
+		} else {
+			DEBUG_PRINT("Asynchronous interrupt detected.\n")
+			er = handle_asynchronous_interrupt(vcpu);
+		}
 		kvm_clear_exception_queue(vcpu);
 		kvm_clear_interrupt_queue(vcpu);
+		if (er != EMULATE_DONE) {
+			kvm_queue_exception_e(vcpu, GP_VECTOR, kvm_run->ex.error_code);
+		}
 	}
 #else
 	else if(((DUM_SEG_SELECT & 0xFFF8) == (kvm_run->ex.error_code & 0xFFF8)) && !vcpu->kvm->nitro_data.no_int){ //int no shadow_idt

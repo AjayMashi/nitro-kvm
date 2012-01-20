@@ -32,6 +32,7 @@ void scmon_register_to_name(enum kvm_reg reg, char *str) {
 		case VCPU_REGS_RBP: tmp = "rbp"; break;
 		case VCPU_REGS_RSI: tmp = "rsi"; break;
 		case VCPU_REGS_RDI: tmp = "rdi"; break;
+#ifdef CONFIG_X86_64
 		case VCPU_REGS_R8: tmp = "r8 "; break;
 		case VCPU_REGS_R9: tmp = "r9 "; break;
 		case VCPU_REGS_R10: tmp = "r10"; break;
@@ -40,6 +41,7 @@ void scmon_register_to_name(enum kvm_reg reg, char *str) {
 		case VCPU_REGS_R13: tmp = "r13"; break;
 		case VCPU_REGS_R14: tmp = "r14"; break;
 		case VCPU_REGS_R15: tmp = "r15"; break;
+#endif
 		case VCPU_SCMON_REGS_ANY: tmp = "any"; break;  //WARNING TO BE EXPECTED: warning: case value ‘42’ not in enumerated type ‘enum kvm_reg’
 		default: tmp = "";
 	}
@@ -371,6 +373,7 @@ int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
 						VCPU_REGS_RBP,
 						VCPU_REGS_RSI,
 						VCPU_REGS_RDI,
+#ifdef CONFIG_X86_64
 						VCPU_REGS_R8,
 						VCPU_REGS_R9,
 						VCPU_REGS_R10,
@@ -379,6 +382,7 @@ int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
 						VCPU_REGS_R13,
 						VCPU_REGS_R14,
 						VCPU_REGS_R15,
+#endif
 				};
 				int i;
 				int cont = 0;
