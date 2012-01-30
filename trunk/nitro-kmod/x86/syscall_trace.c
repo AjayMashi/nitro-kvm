@@ -255,8 +255,6 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 
 				kfree(idt);
 			}
-
-			i++;
 		}
 
 	}

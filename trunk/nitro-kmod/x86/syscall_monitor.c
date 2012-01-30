@@ -9,6 +9,7 @@
 #include "syscall_trace.h"
 #include "kvm_cache_regs.h"
 #include "nitro_output.h"
+//#include "task_struct.h" //FOR LINUX PID HACK
 
 #define NITRO_SCMON_ACTION_VALUE_MAX_SIZE 256
 //old value: 384
@@ -195,6 +196,36 @@ static void snprint_action_register_headerline(char *output_line,
 		struct kvm_vcpu *vcpu
 )
 {
+/* HACK TO GET LINUX PID
+	// Threads: Linux Vars
+	// tr register (Points to the TSS)
+	struct kvm_segment tr;
+	// Kernel Stack Pointer
+	u32 esp0;
+	// Linear Address of the thread_info structure
+	u32 thread_info;
+	// Linear Address of the task_struct structure
+	u32 task_struct_address;
+	u32 pid;
+	u32 error;
+
+	//get pid
+	kvm_get_segment(vcpu, &tr, VCPU_SREG_TR);
+	//printk("TR base: 0x%llX\n", tr.base);
+
+	// Get the Kernel Stack Pointer
+	kvm_read_guest_virt_system((tr.base + 4), &esp0, 4, vcpu, &error);
+	//printk("ESP0: 0x%X\n", esp0);
+
+	// Calculate the location of the thread_info structure based on the value of the esp
+	// We assume a stack size of 8Kb
+	thread_info = esp0 & 0xFFFFE000;
+	//printk("THREAD INFO: 0x%X\n", thread_info);
+
+	kvm_read_guest_virt_system(thread_info, &task_struct_address, sizeof(task_struct_address), vcpu, &error);
+	kvm_read_guest_virt_system((gva_t)(task_struct_address+516), &pid, sizeof(pid), vcpu, &error);
+	printk("TASK STRUCT: 0x%X\n", task_struct_address);
+*/
 
 
 	scmon_register_to_name(action_reg, action_reg_name);
@@ -209,10 +240,10 @@ static void snprint_action_register_headerline(char *output_line,
 		get_process_hardware_id(vcpu, &cr3, &verifier, &pde);
 
 		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1,
-				"kvm:syscall_mon(any): %s:0x%lX:%u:0x%lX %lu cr3=0x%lX ",
+				"kvm:syscall_mon(any): %u %s:0x%lX:%u:0x%lX %lu cr3=0x%lX ",pid,
 				vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg, cr3);
 	}else{
-		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %s == %lX occured: %s%+ld %s = ", cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
+		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %u %s == %lX occured: %s%+ld %s = ",pid, cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
 	}
 }
 
