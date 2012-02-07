@@ -82,7 +82,7 @@
 
 #include "trace.h"
 
-#include "syscall_trace.h"
+#include "nitro.h"
 
 #define __ex(x) __kvm_handle_fault_on_reboot(x)
 
