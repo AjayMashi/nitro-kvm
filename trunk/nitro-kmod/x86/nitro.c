@@ -12,8 +12,8 @@
 #include "x86.h"
 #include "mmu.h"
 #include "kvm_vmi.h"
-#include "nitro_output.h"
-#include "syscall_trace.h"
+//#include "nitro_output.h"
+#include "nitro.h"
 #include "syscall_monitor.h"
 #include "tss.h"
 
@@ -290,7 +290,7 @@ int stop_nitro(struct kvm *kvm){
 		return 1;
 	}
 
-	nitro_output_exit();
+	//nitro_output_exit();
 	//sctrace_kvm_init(kvm);
 
 	kvm->nitro_data.running = 0;

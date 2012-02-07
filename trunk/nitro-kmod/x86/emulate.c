@@ -76,7 +76,7 @@
 #include "x86.h"
 #include "tss.h"
 
-#include "syscall_trace.h"
+#include "nitro.h"
 
 /*
  * Opcode effective-address decode tables.

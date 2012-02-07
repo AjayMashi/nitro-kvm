@@ -99,7 +99,7 @@
 #include <asm/div64.h>
 
 #include "kvm_vmi.h"
-#include "syscall_trace.h"
+#include "nitro.h"
 //#include "syscall_monitor.h"
 
 #define MAX_IO_MSRS 256

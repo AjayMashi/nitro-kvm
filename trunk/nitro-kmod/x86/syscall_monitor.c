@@ -6,9 +6,9 @@
  */
 
 #include <linux/kvm_host.h>
-#include "syscall_trace.h"
+#include "nitro.h"
 #include "kvm_cache_regs.h"
-#include "nitro_output.h"
+//#include "nitro_output.h"
 //#include "task_struct.h" //FOR LINUX PID HACK
 
 #define NITRO_SCMON_ACTION_VALUE_MAX_SIZE 256
@@ -240,10 +240,10 @@ static void snprint_action_register_headerline(char *output_line,
 		get_process_hardware_id(vcpu, &cr3, &verifier, &pde);
 
 		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1,
-				"kvm:syscall_mon(any): %u %s:0x%lX:%u:0x%lX %lu cr3=0x%lX ",pid,
+				"kvm:syscall_mon(any): %s:0x%lX:%u:0x%lX %lu cr3=0x%lX ",
 				vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg, cr3);
 	}else{
-		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %u %s == %lX occured: %s%+ld %s = ",pid, cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
+		snprintf(output_line, NITRO_SCMON_OUTPUT_LINE_MAX_SIZE-1, "kvm:syscall_mon: %s == %lX occured: %s%+ld %s = ",cond_reg_name, current_rule->cond_val, action_reg_name, (long int) current_rule->action_reg_offset, action_name);
 	}
 }
 
