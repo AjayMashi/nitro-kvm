@@ -3,5 +3,5 @@ This page describes the netlink socket protocol used for output
 
 = Details =
 
-|32 bits VMID|64 bits syscall nr|32 bits total payload size|\\
+|32 bits VMID|64 bits syscall nr|32 bits total payload size|<br>
 ?? bits register name|8 bits format (value/deref)|32 bits size|data (size bytes)|...
