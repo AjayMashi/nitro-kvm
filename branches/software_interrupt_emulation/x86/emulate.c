@@ -75,13 +75,9 @@
 
 #include "x86.h"
 #include "tss.h"
-#include "lapic.h"
 
-#include "syscall_trace.h"
-
-extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
-extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
-int emulate_int_prot(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops, int irq);
+#include "nitro.h"
+#include "nitro_output.h"
 /*
  * Opcode effective-address decode tables.
  * Note that we only emulate instructions that have at least one memory
@@ -1033,10 +1029,9 @@ int load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
 		goto load;
 
 	ret = read_segment_descriptor(ctxt, ops, selector, &seg_desc);
-	if (ret != X86EMUL_CONTINUE) {
-		printk("Cannot read the descriptor. =(\n");
+	if (ret != X86EMUL_CONTINUE)
 		return ret;
-	}
+
 	err_code = selector & 0xfffc;
 	err_vec = GP_VECTOR;
 
@@ -1059,27 +1054,21 @@ int load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
 		 * segment is not a writable data segment or segment
 		 * selector's RPL != CPL or segment selector's RPL != CPL
 		 */
-		if (rpl != cpl || (seg_desc.type & 0xa) != 0x2 || dpl != cpl) {
-			if ((seg_desc.type & 0xa) != 0x2) printk("Stack is not writable!\n");
-			if (dpl != cpl) printk("DPL != CPL");
+		if (rpl != cpl || (seg_desc.type & 0xa) != 0x2 || dpl != cpl)
 			goto exception;
-		}
 		break;
 	case VCPU_SREG_CS:
-		if (!(seg_desc.type & 8)) {
-			printk("Not a code segment.\n");
-			goto exception; }
+		if (!(seg_desc.type & 8))
+			goto exception;
 
 		if (seg_desc.type & 4) {
 			/* conforming */
-			if (dpl > cpl) {
-				printk("dpl greater than cpl, fail.\n");
-				goto exception;}
+			if (dpl > cpl)
+				goto exception;
 		} else {
 			/* nonconforming */
-			if (rpl > cpl || dpl != cpl) {
-				printk("nonconforming rpl.\n");
-				goto exception; }
+			if (rpl > cpl || dpl != cpl)
+				goto exception;
 		}
 		/* CS(RPL) <- CPL */
 		selector = (selector & 0xfffc) | cpl;
@@ -1109,9 +1098,8 @@ int load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
 		/* mark segment as accessed */
 		seg_desc.type |= 1;
 		ret = write_segment_descriptor(ctxt, ops, selector, &seg_desc);
-		if (ret != X86EMUL_CONTINUE) {
-			printk("huh?\n");
-			return ret; }
+		if (ret != X86EMUL_CONTINUE)
+			return ret;
 	}
 load:
 	ops->set_segment_selector(selector, seg, ctxt->vcpu);
@@ -3936,29 +3924,6 @@ cannot_emulate:
 #define X86_IDT_ENTRY_CONFORMING			0x1 << 10
 #define X86_IDT_ENTRY_PRESENT				0x1 << 15
 
-/* Ugly 32bit arch specific push emulation. sucks. */
-int push_hacked(struct kvm_vcpu *vcpu, unsigned long value) {
-
-	u32 error;
-
-	/* decrease the value of esp by 4 */
-	kvm_register_write(
-			vcpu,
-			VCPU_REGS_RSP,
-			kvm_register_read(vcpu, VCPU_REGS_RSP) - sizeof(value)
-			);
-
-	/* write the new data on top of the stack */
-	kvm_write_guest_virt_system(
-			kvm_register_read(vcpu, VCPU_REGS_RSP),
-			&value,
-			sizeof(value),
-			vcpu,
-			error);
-
-	printk("Pushing %08X onto the stack. New ESP is %08X.\n", value, kvm_register_read(vcpu, VCPU_REGS_RSP));
-}
-
 int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		struct x86_emulate_ops *ops, int irq)
 {
@@ -3976,7 +3941,11 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	irq = ctxt->vcpu->arch.interrupt.nr;
 
 	/* Nitro resets the idt size, ignore if sctracing is enabled */
-	if (((irq << 3) + 7) < dt.size && !ctxt->vcpu->kvm->nitro_data.running) {
+	if (((irq << 3) + 7) < dt.size
+#ifdef SHADOW_IDT
+			&& !ctxt->vcpu->kvm->nitro_data.running
+#endif
+	) {
 		DEBUG_PRINT("critical: interrupt number out of bounds.\n")
 		kvm_clear_exception_queue(ctxt->vcpu);
 		kvm_clear_interrupt_queue(ctxt->vcpu);
@@ -4020,8 +3989,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	DEBUG_PRINT("CPL = 0x%x, DPL = 0x%x\n", cpl, dpl)
 	if (dpl == cpl) DEBUG_PRINT("Handling INTRA_PRIVILEGE_LEVEL_INTERRUPT\n")
 
-	//printk("kvm:handle_user_interrupt: int_nr=%u kvm->nitro_data.shadow_idt.limit=%u 8*int_nr=%u\n",irq,ctxt->vcpu->kvm->nitro_data.shadow_idt.limit,8*irq);
-
 	setup_syscalls_segments(ctxt, ops, &desc_new_cs, &desc_new_ss);
 
 	/* Step 1:  Temporarily saves (internally) the current contents of the
@@ -4045,11 +4012,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
-	/* NOTE: even if the intel doc dictates to load the stack segment before the code
-	 * segment, this is not a good idea when using kvm. In order to prevent it from
-	 * crashing due to access violations, we load the code segment before the stack
-	 * segment.
-	 */
 	DEBUG_PRINT("New code segment is 0x%04X\n", newCS)
 
 	ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
@@ -4058,6 +4020,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* HACK: This is needed for proper stack handling when emulating push
 	 * instructions in asynchronous interrupts.
 	 */
+
 	ctxt->decode.op_bytes = sizeof(unsigned long);
 
 	/* Decide if a stack switch is needed */
@@ -4067,7 +4030,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		DEBUG_PRINT("INT: Switching to new privilege level %x stack!\n", dpl)
 		newESP = *((u32 *)((u8 *)(&tss_segment) + (dpl << 3) + 4));
 		newSS = *((u16 *)((u8 *)(&tss_segment) + (dpl << 3) + 4 + 4));
-		//newSS &= ~SELECTOR_RPL_MASK;
 
 		DEBUG_PRINT("New privilege level %x stack segment is 0x%04X\n", dpl, newSS)
 		DEBUG_PRINT("New privilege level %x stack pointer is 0x%08X\n", dpl, newESP)
@@ -4082,7 +4044,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		 * EIP values for the interrupted procedure’s stack onto the new stack.
 		 */
 
-		/* SS and ESP are only saved if we change the privilege level */
+		/* SS and ESP are saved only if we change the privilege level */
 		c->src.val = ss;
 		DEBUG_PRINT("Pushed %08lX.\n", c->src.val)
 		emulate_push(ctxt, ops);
@@ -4112,7 +4074,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
-	if (/*ctxt->vcpu->arch.interrupt.nr != 0xef && !ctxt->vcpu->arch.apic->irr_pending*/c->b == 0xcd/*kvm_apic_has_interrupt(ctxt->vcpu) == -1*/) {
+	if (c->b == 0xcd) {
 		/* Only increase eip if the interrupt was triggered synchronously */
 		c->src.val = eip + 2;
 	} else {
@@ -4170,7 +4132,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* Needed for asynchronous interrupt handling */
 	ctxt->eip = c->eip;
 
-	//printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
+	NITRO_OUTPUT("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
 	return X86EMUL_CONTINUE;
 }
 

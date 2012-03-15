@@ -1,27 +1,39 @@
 /*
- * syscall_trace.h
+ * nitro.h
  *
  *  Created on: Nov 6, 2009
  *      Author: pfoh
  */
 
 
-#ifndef SYSCALL_TRACE_H_
-#define SYSCALL_TRACE_H_
+#ifndef NITRO_H_
+#define NITRO_H_
 
-#define DEBUG_INTERRUPTS 1
 
-#ifdef DEBUG_INTERRUPTS
-#define DEBUG_PRINT(...)	printk(__VA_ARGS__);
-#else
-#define DEBUG_PRINT(...)	while (false) {}
-#endif
+/**************************** Global options for nitro ****************************/
 
-struct shadow_idt{
+#define VCPU_SCMON_REGS_ANY (42) 		// Used for scmon, represents the "any"
+										// register
+#define DUM_SEG_SELECT 		0xFFFF		// Value to be used to simulate the absence
+										// of IDT entries
+#define SHADOW_IDT			1			// Whether to use the shadow idt technique
+//#define DEBUG_INTERRUPTS 	1			// Switch for debugging interrupt emulation
+//#define USE_NETLINK			1			// Switch between netlink and dmesg (printk)
+#define NETLINK_NITRO 		42			// Value used as id for netlink connection
+#define NETLINK_MC_GROUP	13			// Multicast group for receiving user space
+										// processes
+#define OUTPUT_MAX_CHARS	4096		// Buffer size for each output message
+
+/** Nothing below this line should be changed, configure only the macros above! ***/
+/**********************************************************************************/
+
+#ifdef SHADOW_IDT
+struct shadow_idt {
 	__u64 base;
 	__u16 limit;
 	u8 *table;
 };
+#endif
 
 /*
  * struct sctrace_singlestep
@@ -40,7 +52,7 @@ struct sctrace_singlestep {
 	//int exit_reason; // <! currently unused
 };
 
-struct nitro_data{
+struct nitro_data {
 	int running;
 	char id[16];
 	u64 sysenter_cs_val;
@@ -54,7 +66,7 @@ struct nitro_data{
 	struct shadow_idt shadow_idt;
 };
 
-struct gate_descriptor{
+struct gate_descriptor {
 	u16 offset_low;
 	u16 seg_selector;
 	u16 flags;
@@ -66,7 +78,6 @@ enum nitro_mode {
 	NITRO_MODE_MONITORING
 };
 
-#define VCPU_SCMON_REGS_ANY (42) // used for scmon, represnets the "any" register
 
 int nitro_mod_init(void);
 int nitro_mod_exit(void);
@@ -90,7 +101,6 @@ int stop_syscall_singlestep(struct kvm *kvm);
 void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *verifier, unsigned long *pde);
 
 int handle_asynchronous_interrupt(struct kvm_vcpu *vcpu);
-int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
-		struct x86_emulate_ops *ops, int irq);
+int emulate_int_prot(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops, int irq);
 
-#endif /* SYSCALL_TRACE_H_ */
+#endif /* NITRO_H_ */

@@ -99,7 +99,7 @@
 #include <asm/div64.h>
 
 #include "kvm_vmi.h"
-#include "syscall_trace.h"
+#include "nitro.h"
 //#include "syscall_monitor.h"
 
 #define MAX_IO_MSRS 256
@@ -3542,6 +3542,14 @@ long kvm_arch_vm_ioctl(struct file *filp,
 		r = 0;
 		break;
 	}
+	case KVM_START_SCSINGLESTEP: {
+		r = start_syscall_singlestep(kvm);
+		break;
+	}
+	case KVM_STOP_SCSINGLESTEP: {
+		r = stop_syscall_singlestep(kvm);
+		break;
+	}
 	case KVM_START_SCTRACE: {
 		struct kvm_vmi_data d;
 
@@ -4453,14 +4461,9 @@ int is_int(struct kvm_vcpu *vcpu) {
 	x86_decode_insn(&vcpu->arch.emulate_ctxt);
 
 	if (!vcpu->arch.emulate_ctxt.decode.twobyte
-			&& (vcpu->arch.emulate_ctxt.decode.b) == 0xcd) {
+			&& vcpu->arch.emulate_ctxt.decode.b == 0xcd) {
 		return 1;
 	}
-/*
-	if (vcpu->arch.emulate_ctxt.decode.b == 0xcc) {
-		return 1;
-	}
-*/
 	return 0;
 }
 

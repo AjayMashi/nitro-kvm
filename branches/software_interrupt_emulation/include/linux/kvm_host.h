@@ -65,7 +65,7 @@
 
 #include <asm/kvm_host.h>
 
-#include "syscall_trace.h"
+#include "nitro.h"
 #include "syscall_monitor.h"
 
 /*

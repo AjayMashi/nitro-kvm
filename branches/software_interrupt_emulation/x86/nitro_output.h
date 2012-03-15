@@ -8,18 +8,27 @@
 #ifndef NITRO_OUTPUT_H_
 #define NITRO_OUTPUT_H_
 
-#include <linux/kvm_host.h>
 
-struct nitro_output {
-	struct list_head list;
-	char *line;
-};
-
+int nitro_output_append(char *msg);
 int nitro_output_init(void);
 int nitro_output_exit(void);
-int nitro_output_append(char *string, int string_length);
-int nitro_output_print_idt_entries(struct kvm_vcpu *vcpu);
-int nitro_output_print_gdt_entries(struct kvm_vcpu *vcpu);
-int nitro_output_hexdump(u8 *data, int lines, int optionalPrintAddress);
+
+#ifdef USE_NETLINK
+#define NITRO_OUTPUT(...) { \
+	char *str; \
+	str = (char *) kmalloc(OUTPUT_MAX_CHARS, GFP_KERNEL); \
+	sprintf(str, __VA_ARGS__); \
+	nitro_output_append(str); \
+	kfree(str); \
+}
+#else
+#define NITRO_OUTPUT(...)	printk(__VA_ARGS__);
+#endif
+
+#ifdef DEBUG_INTERRUPTS
+#define DEBUG_PRINT(...)	NITRO_OUTPUT(...)
+#else
+#define DEBUG_PRINT(...)	while (0) {}
+#endif
 
 #endif /* NITRO_OUTPUT_H_ */
