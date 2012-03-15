@@ -8,7 +8,7 @@ For now this remains an internal help page
 
 = Details =
 
-high level has table for storing action structs per syscall (key=syscall nr., value=ptr to rule_action list
+high level has table for storing action structs per syscall (key=syscall nr., value=ptr to rule_action list)
 
 {{{
 struct rule_action
