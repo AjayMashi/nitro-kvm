@@ -1,0 +1,18 @@
+#labels internal
+#This page describes the rules processing subsystem
+
+= Introduction =
+
+For now this remains an internal help page
+
+
+= Details =
+
+high level has table for storing action structs per syscall (key=syscall nr., value=ptr to rule_action list
+
+struct rule_action
+  flag halt, sign, direct
+  KVM_REG target, lhs, rhs
+  int64 offset
+  uint64 size //if 0 use lhs/rhs/sign
+  list_head siblings
