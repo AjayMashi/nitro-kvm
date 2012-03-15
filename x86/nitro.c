@@ -12,18 +12,18 @@
 #include "x86.h"
 #include "mmu.h"
 #include "kvm_vmi.h"
+#include "nitro.h"
 #include "nitro_output.h"
-#include "syscall_trace.h"
 #include "syscall_monitor.h"
 #include "tss.h"
-
-#define DUM_SEG_SELECT 0xFFFF
-#define SHADOW_IDT
 
 extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 extern int is_sysenter_sysreturn(struct kvm_vcpu *vcpu);
 extern int is_int(struct kvm_vcpu *vcpu);
+extern int nitro_output_init(void);
+extern int nitro_output_exit(void);
+extern int nitro_output_append(char *msg);
 
 int nitro_mod_init(void){
 	return 0;
@@ -31,7 +31,6 @@ int nitro_mod_init(void){
 
 int nitro_mod_exit(void){
 	return 0;
-	//nitro_output_exit();
 }
 
 int nitro_kvm_init(struct kvm *kvm){
@@ -75,17 +74,24 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	int idt_entry_size = 8; /* 8 if 32bit, 16 if 64bit */
 #endif
 
-	printk("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg);
+	output_init = nitro_output_init();
+
+	if (output_init != 0) {
+		printk("CRITICAL: Unable to initialize nitro output system. Start aborted.\n");
+		return 1;
+	}
+
+	NITRO_OUTPUT("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg)
 
 	if(kvm->nitro_data.running){
-		printk("kvm:start_syscall_trace: WARNING: nitro is already running, start will be aborted.\n");
+		NITRO_OUTPUT("kvm:start_syscall_trace: WARNING: nitro is already running, start will be aborted.\n")
 		return 1;
 	}
 
 	vcpu=kvm_get_vcpu(kvm,0);
 
 	// check if idt_index is an intelligent value
-	printk("check if idt index is an intelligent value\n");
+	NITRO_OUTPUT("check if idt index is an intelligent value\n")
 	vcpu_load(vcpu);
 	kvm_arch_vcpu_ioctl_get_sregs(vcpu,&sregs);
 	vcpu_put(vcpu);
@@ -94,7 +100,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 		kvm->nitro_data.no_int = 1;
 	}
 	else if(idt_index<32 || idt_index>(sregs.idt.limit+1)/8){
-		printk("kvm:start_syscall_trace: ERROR: invalid idt_index passed, start will be aborted.\n");
+		NITRO_OUTPUT("kvm:start_syscall_trace: ERROR: invalid idt_index passed, start will be aborted.\n")
 		return 2;
 	}
 	else{
@@ -102,38 +108,38 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	}
 
 	//check if Paging/PAE/IA32-E mode
-	printk("check if Paging/PAE/IA32-E mode available\n");
-	printk("get some registers\n");
+	NITRO_OUTPUT("check if Paging/PAE/IA32-E mode available\n")
+	NITRO_OUTPUT("get some registers\n")
 	//cr0 = kvm->vcpus[0]->arch.cr0;
 	//cr4 = kvm->vcpus[0]->arch.cr4;
 	cr0 = sregs.cr0;
 	cr4 = sregs.cr4;
-	printk("kvm_get_msr_common\n");
+	NITRO_OUTPUT("kvm_get_msr_common\n")
 	//kvm_get_msr_common(kvm->vcpus[0], MSR_EFER, &efer);
 	efer = sregs.efer;
 
 	if(!(cr0 & 0x80000000)){
-		printk("kvm:start_syscall_trace: WARNING: paging not set in guest, aborting system call tracing.\n");
+		NITRO_OUTPUT("kvm:start_syscall_trace: WARNING: paging not set in guest, aborting system call tracing.\n")
 		return 3;
 	}
 
 	if(cr4 & 0x00000020){
 		if(efer & EFER_LME){
 			kvm->nitro_data.pae = 2;
-			printk("kvm:start_syscall_trace: starting syscall trace with IA32-E on.\n");
+			NITRO_OUTPUT("kvm:start_syscall_trace: starting syscall trace with IA32-E on.\n")
 		}
 		else{
 			kvm->nitro_data.pae = 1;
-			printk("kvm:start_syscall_trace: starting syscall trace with PAE on.\n");
+			NITRO_OUTPUT("kvm:start_syscall_trace: starting syscall trace with PAE on.\n")
 		}
 	}
 	else{
 		kvm->nitro_data.pae = 0;
-		printk("kvm:start_syscall_trace: starting syscall trace with PAE/IA32-E off.\n");
+		NITRO_OUTPUT("kvm:start_syscall_trace: starting syscall trace with PAE/IA32-E off.\n")
 	}
 
 	// set syscall_reg
-	printk("set syscall_reg\n");
+	NITRO_OUTPUT("set syscall_reg\n")
 	if (strcmp(syscall_reg, "rbx") == 0) {
 		kvm->nitro_data.syscall_reg = VCPU_REGS_RBX;
 	}
@@ -146,7 +152,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	else {
 		kvm->nitro_data.syscall_reg = VCPU_REGS_RAX;
 	}
-	printk("kvm:start_syscall_trace: starting syscall trace with syscall_reg = %d, name='%s'\n", kvm->nitro_data.syscall_reg, syscall_reg);
+	NITRO_OUTPUT("kvm:start_syscall_trace: starting syscall trace with syscall_reg = %d, name='%s'\n", kvm->nitro_data.syscall_reg, syscall_reg)
 
 	if (nitro_mode == NITRO_MODE_TRACE) {
 		kvm->nitro_data.running = 1;
@@ -161,7 +167,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	kvm_for_each_vcpu(i, vcpu, kvm){
 		vcpu_load(vcpu);
 		kvm_x86_ops->set_gp_trap(vcpu);
-		printk("kvm:start_syscall_trace: cpu%d: GP trap set\n",i);
+		NITRO_OUTPUT("kvm:start_syscall_trace: cpu%d: GP trap set\n",i)
 		vcpu_put(vcpu);
 
 		//i++;
@@ -243,7 +249,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 					}
 				}
 
-				printk("kvm:start_syscall_trace: using empty gate 0x%hX\n",kvm->nitro_data.idt_replaced_offset);
+				NITRO_OUTPUT("kvm:start_syscall_trace: using empty gate 0x%hX\n",kvm->nitro_data.idt_replaced_offset)
 
 				memcpy(idt + (kvm->nitro_data.idt_replaced_offset*idt_entry_size), idt + (kvm->nitro_data.idt_int_offset*idt_entry_size), idt_entry_size);
 
@@ -255,26 +261,10 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 
 				kfree(idt);
 			}
-
-			i++;
 		}
 
 	}
 #endif
-
-
-
-
-	/*
-	 * Proc Output
-	output_init = nitro_output_init();
-
-	if (output_init != 0) {
-		stop_syscall_trace(kvm);
-		return 1;
-	}
-	 */
-
 	//kfree(kvm->nitro_data.singlestep);
 
 	return 0;
@@ -288,11 +278,10 @@ int stop_nitro(struct kvm *kvm){
 	u32 error;
 
 	if(!kvm->nitro_data.running){
-		printk("kvm:stop_syscall_trace: WARNING: nitro is not started, stop will be aborted.\n");
+		NITRO_OUTPUT("kvm:stop_syscall_trace: WARNING: nitro is not started, stop will be aborted.\n")
 		return 1;
 	}
 
-	nitro_output_exit();
 	//sctrace_kvm_init(kvm);
 
 	kvm->nitro_data.running = 0;
@@ -302,7 +291,7 @@ int stop_nitro(struct kvm *kvm){
 	while(kvm->vcpus[i] && i<KVM_MAX_VCPUS){
 		vcpu_load(kvm->vcpus[i]);
 		kvm_x86_ops->unset_gp_trap(kvm->vcpus[i]);
-		printk("kvm:start_syscall_trace: cpu%d: GP trap unset\n",i);
+		NITRO_OUTPUT("kvm:start_syscall_trace: cpu%d: GP trap unset\n",i)
 		vcpu_put(kvm->vcpus[i]);
 
 		i++;
@@ -366,6 +355,7 @@ int stop_nitro(struct kvm *kvm){
 #endif
 
 
+	nitro_output_exit();
 	return 0;
 }
 
@@ -443,7 +433,7 @@ int sctrace_print_trace(char prefix, struct kvm_vcpu *vcpu){
 	nitro_output_append(sctrace_line, 255);
 */
 
-printk("kvm:syscall trace(%c): %s:0x%lX:%u:0x%lX %lu\n", prefix, vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg);
+NITRO_OUTPUT("kvm:syscall trace(%c): %s:0x%lX:%u:0x%lX %lu\n", prefix, vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg)
 
 	vcpu->kvm->nitro_data.singlestep.need_exit_to_qemu = 1;
 	return 0;
@@ -482,7 +472,7 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	}
 #ifdef SHADOW_IDT
 	else if(vcpu->arch.interrupt.pending && vcpu->arch.interrupt.nr > 31){//int shadow_idt
-		printk("trapped int 0x%X\n", vcpu->arch.interrupt.nr);
+		NITRO_OUTPUT("trapped int 0x%X\n", vcpu->arch.interrupt.nr)
 		DEBUG_PRINT("begin_int_handling: EIP is now 0x%08lX.\n", kvm_register_read(vcpu, VCPU_REGS_RIP))
 		if (is_int(vcpu)) {
 			er = emulate_instruction(vcpu, 0, 0, 0);

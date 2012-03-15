@@ -99,7 +99,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/kvm.h>
 
-#include "syscall_trace.h"
+#include "nitro.h"
+#include "nitro_output.h"
 
 MODULE_INFO(version, "kvm-kmod-2.6.37");
 MODULE_AUTHOR("Qumranet");

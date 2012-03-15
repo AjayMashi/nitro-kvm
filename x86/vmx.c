@@ -82,7 +82,7 @@
 
 #include "trace.h"
 
-#include "syscall_trace.h"
+#include "nitro.h"
 
 #define __ex(x) __kvm_handle_fault_on_reboot(x)
 
@@ -2050,22 +2050,13 @@ static void vmx_get_segment(struct kvm_vcpu *vcpu,
 
 static int vmx_get_cpl(struct kvm_vcpu *vcpu)
 {
-
 	if (!is_protmode(vcpu))
 		return 0;
 
 	if (vmx_get_rflags(vcpu) & X86_EFLAGS_VM) /* if virtual 8086 */
 		return 3;
 
-	//printk("vmx.c: return %X;\n", vmcs_read16(GUEST_CS_SELECTOR) & 3);
-
 	return vmcs_read16(GUEST_CS_SELECTOR) & 3;
-}
-
-static int vmx_set_kernel_mode(struct kvm_vcpu *vcpu)
-{
-	printk("vmx.c: Hacking into kernel mode ...\n");
-	vmcs_write16(GUEST_CS_SELECTOR, vmcs_read16(GUEST_CS_SELECTOR) & 0xfffc);
 }
 
 static u32 vmx_segment_access_rights(struct kvm_segment *var)
@@ -3046,6 +3037,8 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 	u32 vect_info;
 	enum emulation_result er;
 
+	int ret; // <! temporary variable
+
 	vect_info = vmx->idt_vectoring_info;
 	intr_info = vmcs_read32(VM_EXIT_INTR_INFO);
 
@@ -3076,6 +3069,10 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		er = emulate_instruction(vcpu, 0, 0, EMULTYPE_TRAP_UD);
 		if (er != EMULATE_DONE)
 			kvm_queue_exception(vcpu, UD_VECTOR);
+		if(nitro_check_singlestep(vcpu)){
+			//printk("kvm:singlestep returning to qemu after emulate_instruction()\n");
+			return 0;
+		}
 		return 1;
 	}
 
@@ -3134,7 +3131,12 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
 		kvm_run->ex.exception = ex_no;
 		kvm_run->ex.error_code = error_code;
-		return handle_gp(vcpu, kvm_run);
+		ret = handle_gp(vcpu, kvm_run);
+		if(nitro_check_singlestep(vcpu)){
+			//printk("kvm:singlestep returning to qemu after handle_gp()\n");
+			return 0;
+		}
+		return ret;
 		break;
 	default:
 		printk("kvm:Unknown Exception trapped\n");
@@ -4366,7 +4368,6 @@ static struct kvm_x86_ops vmx_x86_ops = {
 	.get_segment = vmx_get_segment,
 	.set_segment = vmx_set_segment,
 	.get_cpl = vmx_get_cpl,
-	.set_kernel = vmx_set_kernel_mode,
 	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
 	.decache_cr0_guest_bits = vmx_decache_cr0_guest_bits,
 	.decache_cr4_guest_bits = vmx_decache_cr4_guest_bits,
