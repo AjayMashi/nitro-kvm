@@ -23,7 +23,7 @@ struct scmon_rule *scmon_first_rule = NULL;
 void scmon_register_to_name(enum kvm_reg reg, char *str) {
 	char *tmp;
 
-	tmp = kmalloc(4, GFP_KERNEL);
+	tmp = kzalloc(4, GFP_KERNEL);
 	switch (reg) {
 		case VCPU_REGS_RAX: tmp = "rax"; break;
 		case VCPU_REGS_RBX: tmp = "rbx"; break;
@@ -53,7 +53,7 @@ void scmon_register_to_name(enum kvm_reg reg, char *str) {
 void scmon_action_to_name(enum scmon_action action, char *str) {
 	char *tmp;
 
-	tmp = kmalloc(10, GFP_KERNEL);
+	tmp = kzalloc(10, GFP_KERNEL);
 	switch (action) {
 		case SCMON_ACTION_HEX: 		tmp = "hex"; break;
 		case SCMON_ACTION_INT: 		tmp = "int"; break;
@@ -72,25 +72,25 @@ int scmon_add_rule(enum kvm_reg cond_reg, unsigned long int cond_val, enum kvm_r
 	struct scmon_rule *rule;
 	char *cond_reg_name, *action_reg_name, *action_name;
 
-	rule = kmalloc(sizeof(struct scmon_rule), GFP_KERNEL);
+	rule = kzalloc(sizeof(struct scmon_rule), GFP_KERNEL);
 	if (rule == NULL) {
 		return 1;
 	}
 
-	cond_reg_name = kmalloc(4, GFP_KERNEL);
+	cond_reg_name = kzalloc(4, GFP_KERNEL);
 	if (cond_reg_name == NULL) {
 		kfree(rule);
 		return 1;
 	}
 
-	action_reg_name = kmalloc(4, GFP_KERNEL);
+	action_reg_name = kzalloc(4, GFP_KERNEL);
 	if (action_reg_name == NULL) {
 		kfree(rule);
 		kfree(cond_reg_name);
 		return 1;
 	}
 
-	action_name = kmalloc(10, GFP_KERNEL);
+	action_name = kzalloc(10, GFP_KERNEL);
 	if (action_name == NULL) {
 		kfree(rule);
 		kfree(cond_reg_name);
@@ -304,7 +304,7 @@ static int snprint_action_register(char *action_value,
 		snprintf(action_value, NITRO_SCMON_ACTION_VALUE_MAX_SIZE-1, "%s=%lu\n", action_reg_name, scmonderef);
 		break;
 	case SCMON_ACTION_DEREFSTR:
-		buffer = kmalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
+		buffer = kzalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
 		if (buffer == NULL) {
 			printk("kvm:syscall_mon: could not allocate memory for string buffer\n");
 			return -1;
@@ -337,25 +337,25 @@ int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
 		return 0;
 	}
 
-	cond_reg_name = kmalloc(4, GFP_KERNEL);
+	cond_reg_name = kzalloc(4, GFP_KERNEL);
 	if (cond_reg_name == NULL) {
 		return 1;
 	}
 
-	action_reg_name = kmalloc(4, GFP_KERNEL);
+	action_reg_name = kzalloc(4, GFP_KERNEL);
 	if (action_reg_name == NULL) {
 		kfree(cond_reg_name);
 		return 1;
 	}
 
-	action_name = kmalloc(9, GFP_KERNEL);
+	action_name = kzalloc(9, GFP_KERNEL);
 	if (action_name == NULL) {
 		kfree(cond_reg_name);
 		kfree(action_reg_name);
 		return 1;
 	}
 
-	output_line = kmalloc(NITRO_SCMON_OUTPUT_LINE_MAX_SIZE, GFP_KERNEL);
+	output_line = kzalloc(NITRO_SCMON_OUTPUT_LINE_MAX_SIZE, GFP_KERNEL);
 	if (output_line == NULL) {
 		kfree(cond_reg_name);
 		kfree(action_reg_name);
@@ -363,7 +363,7 @@ int scmon_print_trace(char prefix, struct kvm_vcpu *vcpu) {
 		return 1;
 	}
 
-	action_value = kmalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
+	action_value = kzalloc(NITRO_SCMON_ACTION_VALUE_MAX_SIZE, GFP_KERNEL);
 	if (action_value == NULL) {
 		kfree(cond_reg_name);
 		kfree(action_reg_name);
@@ -471,7 +471,7 @@ int scmon_list_rules(char *buffer, unsigned int buffer_length) {
 	char tmp[64];
 	unsigned int local_buffer_length, rule_index;
 
-	local_buffer = kmalloc(buffer_length, GFP_KERNEL);
+	local_buffer = kzalloc(buffer_length, GFP_KERNEL);
 	if (local_buffer == NULL) {
 		printk("scmon_list_rules could not allocate enough memory!\n");
 		return -1;
