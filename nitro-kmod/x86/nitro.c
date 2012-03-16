@@ -18,7 +18,7 @@
 #include "tss.h"
 
 #define DUM_SEG_SELECT 0xFFFF
-
+//#define SHADOW_IDT
 
 extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);

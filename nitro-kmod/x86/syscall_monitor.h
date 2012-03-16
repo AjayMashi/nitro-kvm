@@ -25,11 +25,17 @@ enum scmon_action {
 struct scmon_rule {
 	enum kvm_reg cond_reg;
 	unsigned long int cond_val;
-	enum kvm_reg action_reg;
-	int64_t action_reg_offset;
-	enum scmon_action action;
-	struct scmon_rule *next;
+        struct actions * first_action;
+        struct actions * last_action;
+        struct scmon_rule *next;
 	struct scmon_rule *prev;
+};
+struct actions {
+        struct actions *next;
+        struct actions *prev;
+        enum kvm_reg action_reg;
+	enum scmon_action action;
+        int64_t action_reg_offset;
 };
 
 int scmon_flush_rules(void);

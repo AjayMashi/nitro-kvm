@@ -3940,8 +3940,6 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 	irq = ctxt->vcpu->arch.interrupt.nr;
 
-	ops->get_idt(&dt, ctxt->vcpu);
-
 	/* Nitro resets the idt size, ignore if sctracing is enabled */
 	if (((irq << 3) + 7) < dt.size
 #ifdef SHADOW_IDT
@@ -3955,7 +3953,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		return X86EMUL_PROPAGATE_FAULT;
 	}
 
-
+	ops->get_idt(&dt, ctxt->vcpu);
 	rc = ops->read_std(dt.address + (irq << 3), &int_gate, 8, ctxt->vcpu, &err);
 	if (rc != X86EMUL_CONTINUE)
 		return rc;

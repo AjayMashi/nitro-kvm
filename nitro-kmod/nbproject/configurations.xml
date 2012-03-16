@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="80">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <df name="nitro-kmod" root=".">
+      <df name="ia64">
+        <in>asm-offsets.c</in>
+        <in>assigned-dev.c</in>
+        <in>coalesced_mmio.c</in>
+        <in>coalesced_mmio.h</in>
+        <in>eventfd.c</in>
+        <in>external-module-compat.h</in>
+        <in>ioapic.c</in>
+        <in>ioapic.h</in>
+        <in>iodev.h</in>
+        <in>iommu.c</in>
+        <in>irq.h</in>
+        <in>irq_comm.c</in>
+        <in>kvm-ia64.c</in>
+        <in>kvm_fw.c</in>
+        <in>kvm_lib.c</in>
+        <in>kvm_main.c</in>
+        <in>kvm_minstate.h</in>
+        <in>lapic.h</in>
+        <in>memcpy.S</in>
+        <in>memset.S</in>
+        <in>misc.h</in>
+        <in>mmio.c</in>
+        <in>optvfault.S</in>
+        <in>process.c</in>
+        <in>trampoline.S</in>
+        <in>vcpu.c</in>
+        <in>vcpu.h</in>
+        <in>vmm.c</in>
+        <in>vmm_ivt.S</in>
+        <in>vti.h</in>
+        <in>vtlb.c</in>
+      </df>
+      <df name="include">
+        <df name="arch">
+          <df name="x86">
+            <df name="kvm">
+              <in>assigned-dev.c</in>
+              <in>coalesced_mmio.c</in>
+              <in>coalesced_mmio.h</in>
+              <in>compat-x86.c</in>
+              <in>emulate.c</in>
+              <in>eventfd.c</in>
+              <in>external-module-compat.h</in>
+              <in>i8254.c</in>
+              <in>i8254.h</in>
+              <in>i8259.c</in>
+              <in>ioapic.c</in>
+              <in>ioapic.h</in>
+              <in>iodev.h</in>
+              <in>iommu.c</in>
+              <in>irq.c</in>
+              <in>irq.h</in>
+              <in>irq_comm.c</in>
+              <in>kvm-amd.mod.c</in>
+              <in>kvm-intel.mod.c</in>
+              <in>kvm.mod.c</in>
+              <in>kvm_cache_regs.h</in>
+              <in>kvm_main.c</in>
+              <in>kvm_timer.h</in>
+              <in>kvm_vmi.h</in>
+              <in>lapic.c</in>
+              <in>lapic.h</in>
+              <in>mmu.c</in>
+              <in>mmu.h</in>
+              <in>mmu_audit.c</in>
+              <in>mmutrace.h</in>
+              <in>nitro.c</in>
+              <in>nitro.h</in>
+              <in>paging_tmpl.h</in>
+              <in>preempt.c</in>
+              <in>svm.c</in>
+              <in>syscall_monitor.c</in>
+              <in>syscall_monitor.h</in>
+              <in>timer.c</in>
+              <in>trace.h</in>
+              <in>tss.h</in>
+              <in>vmx.c</in>
+              <in>x86.c</in>
+              <in>x86.h</in>
+            </df>
+          </df>
+        </df>
+        <df name="asm-ia64">
+          <in>kvm.h</in>
+          <in>kvm_host.h</in>
+          <in>kvm_para.h</in>
+        </df>
+        <df name="asm-x86">
+          <in>hyperv.h</in>
+          <in>kvm.h</in>
+          <in>kvm_emulate.h</in>
+          <in>kvm_host.h</in>
+          <in>kvm_para.h</in>
+          <in>svm.h</in>
+          <in>virtext.h</in>
+          <in>vmx.h</in>
+        </df>
+        <df name="linux">
+          <in>kvm.h</in>
+          <in>kvm_host.h</in>
+          <in>kvm_para.h</in>
+          <in>kvm_types.h</in>
+        </df>
+        <df name="trace">
+          <df name="events">
+            <in>kvm.h</in>
+          </df>
+        </df>
+      </df>
+      <df name="include-compat">
+        <df name="asm-ia64">
+          <in>msidef.h</in>
+        </df>
+        <df name="asm-x86">
+          <in>asm.h</in>
+          <in>cmpxchg.h</in>
+          <in>mce.h</in>
+          <in>msidef.h</in>
+          <in>msr-index.h</in>
+          <in>pvclock-abi.h</in>
+          <in>pvclock.h</in>
+          <in>xcr.h</in>
+        </df>
+        <df name="linux">
+          <in>anon_inodes.h</in>
+          <in>eventfd.h</in>
+          <in>ftrace_event.h</in>
+          <in>intel-iommu.h</in>
+          <in>iommu.h</in>
+          <in>iova.h</in>
+          <in>magic.h</in>
+          <in>marker.h</in>
+          <in>math64.h</in>
+          <in>mmu_notifier.h</in>
+          <in>msi.h</in>
+          <in>mutex.h</in>
+          <in>perf_event.h</in>
+          <in>srcu.h</in>
+          <in>tboot.h</in>
+          <in>tracepoint.h</in>
+          <in>user-return-notifier.h</in>
+        </df>
+        <df name="trace">
+          <in>define_trace.h</in>
+        </df>
+      </df>
+      <df name="powerpc">
+      </df>
+      <df name="scripts">
+      </df>
+      <df name="usr">
+        <df name="include">
+          <df name="asm-ia64">
+            <in>kvm.h</in>
+            <in>kvm_para.h</in>
+          </df>
+          <df name="asm-x86">
+            <in>hyperv.h</in>
+            <in>kvm.h</in>
+            <in>kvm_para.h</in>
+          </df>
+          <df name="linux">
+            <in>kvm.h</in>
+            <in>kvm_para.h</in>
+          </df>
+        </df>
+      </df>
+      <df name="x86">
+        <in>assigned-dev.c</in>
+        <in>coalesced_mmio.c</in>
+        <in>coalesced_mmio.h</in>
+        <in>compat-x86.c</in>
+        <in>emulate.c</in>
+        <in>eventfd.c</in>
+        <in>external-module-compat.h</in>
+        <in>i8254.c</in>
+        <in>i8254.h</in>
+        <in>i8259.c</in>
+        <in>ioapic.c</in>
+        <in>ioapic.h</in>
+        <in>iodev.h</in>
+        <in>iommu.c</in>
+        <in>irq.c</in>
+        <in>irq.h</in>
+        <in>irq_comm.c</in>
+        <in>kvm-amd.mod.c</in>
+        <in>kvm-intel.mod.c</in>
+        <in>kvm.mod.c</in>
+        <in>kvm_cache_regs.h</in>
+        <in>kvm_main.c</in>
+        <in>kvm_timer.h</in>
+        <in>kvm_vmi.h</in>
+        <in>lapic.c</in>
+        <in>lapic.h</in>
+        <in>mmu.c</in>
+        <in>mmu.h</in>
+        <in>mmu_audit.c</in>
+        <in>mmutrace.h</in>
+        <in>nitro.c</in>
+        <in>nitro.h</in>
+        <in>paging_tmpl.h</in>
+        <in>preempt.c</in>
+        <in>svm.c</in>
+        <in>syscall_monitor.c</in>
+        <in>syscall_monitor.h</in>
+        <in>timer.c</in>
+        <in>trace.h</in>
+        <in>tss.h</in>
+        <in>vmx.c</in>
+        <in>x86.c</in>
+        <in>x86.h</in>
+      </df>
+      <in>anon_inodes.c</in>
+      <in>external-module-compat-comm.h</in>
+      <in>external-module-compat.c</in>
+      <in>kvm-kmod-config.h</in>
+      <in>request-irq-compat.c</in>
+      <in>srcu.c</in>
+      <in>unifdef.h</in>
+    </df>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>Makefile</itemPath>
+      <itemPath>configure</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
+  <sourceRootList>
+    <Elem>.</Elem>
+  </sourceRootList>
+  <projectmakefile>Makefile</projectmakefile>
+  <confs>
+    <conf name="Default" type="0">
+      <toolsSet>
+        <remote-sources-mode>LOCAL_SOURCES</remote-sources-mode>
+        <compilerSet>default</compilerSet>
+      </toolsSet>
+      <makefileType>
+        <makeTool>
+          <buildCommandWorkingDir>.</buildCommandWorkingDir>
+          <buildCommand>${MAKE} -f Makefile</buildCommand>
+          <cleanCommand>${MAKE} -f Makefile clean</cleanCommand>
+          <executablePath></executablePath>
+          <cTool>
+            <incDir>
+              <pElem>../../../.netbeans/7.1.1/var/cache/remote-files/10.0.0.22_22_root/usr/src/linux-headers-2.6.37-02063706-generic/arch/x86/include</pElem>
+              <pElem>../../../.netbeans/7.1.1/var/cache/remote-files/10.0.0.22_22_root/usr/lib/gcc/x86_64-linux-gnu/4.6.1/include</pElem>
+              <pElem>../../../.netbeans/7.1.1/var/cache/remote-files/10.0.0.22_22_root/usr/src/linux-headers-2.6.37-02063706-generic/include</pElem>
+              <pElem>../../../.netbeans/7.1.1/var/cache/remote-files/10.0.0.22_22_root/usr/src/linux-headers-2.6.37-02063706-generic/include/generated/autoconf.h</pElem>
+              <pElem>include-compat</pElem>
+              <pElem>../../../.netbeans/7.1.1/var/cache/remote-files/10.0.0.22_22_root/usr/src/linux-headers-2.6.37-02063706-generic</pElem>
+              <pElem>x86/external-module-compat.h</pElem>
+              <pElem>x86</pElem>
+              <pElem>include</pElem>
+            </incDir>
+            <preprocessorList>
+              <Elem>CC_HAVE_ASM_GOTO</Elem>
+              <Elem>CONFIG_AS_CFI=1</Elem>
+              <Elem>CONFIG_AS_CFI_SECTIONS=1</Elem>
+              <Elem>CONFIG_AS_CFI_SIGNAL_FRAME=1</Elem>
+              <Elem>CONFIG_AS_FXSAVEQ=1</Elem>
+              <Elem>KBUILD_BASENAME=KBUILD_STR(assigned_dev)</Elem>
+              <Elem>KBUILD_MODNAME=KBUILD_STR(kvm)</Elem>
+              <Elem>KBUILD_STR(s)=#s</Elem>
+              <Elem>MODULE</Elem>
+              <Elem>__KERNEL__</Elem>
+            </preprocessorList>
+          </cTool>
+        </makeTool>
+      </makefileType>
+      <item path="anon_inodes.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(anon_inodes)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="external-module-compat.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(external_module_compat)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="ia64/asm-offsets.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/assigned-dev.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/coalesced_mmio.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/coalesced_mmio.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/eventfd.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/external-module-compat.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/ioapic.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/ioapic.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/iodev.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/iommu.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/irq.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/irq_comm.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/kvm-ia64.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/kvm_fw.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/kvm_lib.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/kvm_main.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/kvm_minstate.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/lapic.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/memcpy.S" ex="true" tool="4" flavor="0">
+      </item>
+      <item path="ia64/memset.S" ex="true" tool="4" flavor="0">
+      </item>
+      <item path="ia64/misc.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/mmio.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/optvfault.S" ex="true" tool="4" flavor="0">
+      </item>
+      <item path="ia64/process.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/trampoline.S" ex="true" tool="4" flavor="0">
+      </item>
+      <item path="ia64/vcpu.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/vcpu.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/vmm.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="ia64/vmm_ivt.S" ex="true" tool="4" flavor="0">
+      </item>
+      <item path="ia64/vti.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="ia64/vtlb.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include-compat/asm-ia64/msidef.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/asm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/cmpxchg.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/mce.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/msidef.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/msr-index.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/pvclock-abi.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/pvclock.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/asm-x86/xcr.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/linux/marker.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include-compat/linux/mmu_notifier.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/assigned-dev.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/coalesced_mmio.c"
+            ex="true"
+            tool="0"
+            flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/coalesced_mmio.h"
+            ex="true"
+            tool="3"
+            flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/compat-x86.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/emulate.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/eventfd.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/external-module-compat.h"
+            ex="true"
+            tool="3"
+            flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/i8254.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/i8254.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/i8259.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/ioapic.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/ioapic.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/iodev.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/iommu.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/irq.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/irq.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/irq_comm.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm-amd.mod.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm-intel.mod.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm.mod.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm_cache_regs.h"
+            ex="true"
+            tool="3"
+            flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm_main.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm_timer.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/kvm_vmi.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/lapic.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/lapic.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/mmu.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/mmu.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/mmu_audit.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/mmutrace.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/nitro.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/paging_tmpl.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/preempt.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/svm.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/syscall_monitor.c"
+            ex="true"
+            tool="0"
+            flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/timer.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/tss.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/vmx.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/x86.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="include/arch/x86/kvm/x86.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-ia64/kvm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-ia64/kvm_host.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-ia64/kvm_para.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/hyperv.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/kvm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/kvm_emulate.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/kvm_host.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/kvm_para.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/svm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/virtext.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="include/asm-x86/vmx.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="request-irq-compat.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(request_irq_compat)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="srcu.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(srcu)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="unifdef.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/asm-ia64/kvm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/asm-ia64/kvm_para.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/asm-x86/hyperv.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/asm-x86/kvm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/asm-x86/kvm_para.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/linux/kvm.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="usr/include/linux/kvm_para.h" ex="true" tool="3" flavor="0">
+      </item>
+      <item path="x86/coalesced_mmio.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(coalesced_mmio)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/compat-x86.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(compat_x86)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/emulate.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(emulate)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/eventfd.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(eventfd)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/i8254.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(i8254)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/i8259.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(i8259)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/ioapic.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(ioapic)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/iommu.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(iommu)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/irq.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(irq)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/irq_comm.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(irq_comm)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/kvm-amd.mod.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(kvm_amd.mod)</Elem>
+            <Elem>KBUILD_MODNAME=KBUILD_STR(kvm_amd)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/kvm-intel.mod.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(kvm_intel.mod)</Elem>
+            <Elem>KBUILD_MODNAME=KBUILD_STR(kvm_intel)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/kvm.mod.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(kvm.mod)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/kvm_main.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(kvm_main)</Elem>
+            <Elem>KVM_MAIN</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/lapic.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(lapic)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/mmu.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(mmu)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/mmu_audit.c" ex="true" tool="0" flavor="0">
+      </item>
+      <item path="x86/nitro.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(nitro)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/preempt.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(preempt)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/svm.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(svm)</Elem>
+            <Elem>KBUILD_MODNAME=KBUILD_STR(kvm_amd)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/syscall_monitor.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(syscall_monitor)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/timer.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(timer)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/vmx.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(vmx)</Elem>
+            <Elem>KBUILD_MODNAME=KBUILD_STR(kvm_intel)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+      <item path="x86/x86.c" ex="false" tool="0" flavor="0">
+        <cTool>
+          <preprocessorList>
+            <Elem>KBUILD_BASENAME=KBUILD_STR(x86)</Elem>
+          </preprocessorList>
+        </cTool>
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>
