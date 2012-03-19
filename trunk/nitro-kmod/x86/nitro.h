@@ -17,7 +17,8 @@
 #define DEBUG_PRINT(...)	while (false) {}
 #endif
 
-#define SHADOW_IDT
+//#define SHADOW_IDT
+#undef SHADOW_IDT
 
 struct shadow_idt{
 	__u64 base;
