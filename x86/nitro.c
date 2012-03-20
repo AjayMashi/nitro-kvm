@@ -41,7 +41,9 @@ int nitro_kvm_init(struct kvm *kvm){
 	kvm->nitro_data.efer_val = 0;
 	kvm->nitro_data.idt_int_offset = 0;
 	kvm->nitro_data.idt_replaced_offset = 0;
-	kvm->nitro_data.pae = 0;
+	//kvm->nitro_data.pae = 0;
+	kvm->nitro_data.mode = UNDEF;
+	kvm->nitro_data.idt_entry_size = 0;
 	kvm->nitro_data.no_int = 0;
 	kvm->nitro_data.syscall_reg = VCPU_REGS_RAX;
 	//kvm->nitro_data.singlestep = kmalloc(sizeof(struct sctrace_singlestep), GFP_KERNEL);
@@ -71,36 +73,37 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	unsigned long cr4,cr0;
 	struct kvm_vcpu *vcpu;
 
-#ifndef SHADOW_IDT
-	int idt_entry_size = 8; /* 8 if 32bit, 16 if 64bit */
-#endif
-
-	printk("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg);
+	//printk("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg);
 
 	if(kvm->nitro_data.running){
 		printk("kvm:start_syscall_trace: WARNING: nitro is already running, start will be aborted.\n");
 		return 1;
 	}
 
+
+
 	vcpu=kvm_get_vcpu(kvm,0);
 
-	// check if idt_index is an intelligent value
-	printk("check if idt index is an intelligent value\n");
-	vcpu_load(vcpu);
-	kvm_arch_vcpu_ioctl_get_sregs(vcpu,&sregs);
-	vcpu_put(vcpu);
-
-	if(idt_index == 0){
-		kvm->nitro_data.no_int = 1;
-	}
-	else if(idt_index<32 || idt_index>(sregs.idt.limit+1)/8){
-		printk("kvm:start_syscall_trace: ERROR: invalid idt_index passed, start will be aborted.\n");
-		return 2;
-	}
-	else{
-		kvm->nitro_data.idt_int_offset = (u8) idt_index;
+	if(!is_protmode(vcpu)){
+		printk("kvm:start_syscall_trace: ERROR: guest is running in real mode, nitro can not function.\n");
+		return 3;
 	}
 
+	kvm->nitro_data.mode = PROT;
+	kvm->nitro_data.idt_entry_size=8;
+
+	if(is_pae(vcpu)){
+		kvm->nitro_data.mode = PAE;
+		printk("kvm:start_syscall_trace: system running in PAE mode\n");
+	}
+	if(is_long_mode(vcpu)){
+		kvm->nitro_data.mode = LONG;
+		kvm->nitro_data.idt_entry_size=16;
+		printk("kvm:start_syscall_trace: system running in long mode (x86_64)\n");
+	}
+
+
+/*
 	//check if Paging/PAE/IA32-E mode
 	printk("check if Paging/PAE/IA32-E mode available\n");
 	printk("get some registers\n");
@@ -131,6 +134,24 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 		kvm->nitro_data.pae = 0;
 		printk("kvm:start_syscall_trace: starting syscall trace with PAE/IA32-E off.\n");
 	}
+	*/
+
+	// check if idt_index is an intelligent value
+	//printk("check if idt index is an intelligent value\n");
+	vcpu_load(vcpu);
+	kvm_arch_vcpu_ioctl_get_sregs(vcpu,&sregs);
+	vcpu_put(vcpu);
+
+	if(idt_index == 0){
+		kvm->nitro_data.no_int = 1;
+	}
+	else if(idt_index<32 || idt_index>(sregs.idt.limit+1)/kvm->nitro_data.idt_entry_size){
+		printk("kvm:start_syscall_trace: ERROR: invalid idt_index passed, start will be aborted.\n");
+		return 2;
+	}
+	else{
+		kvm->nitro_data.idt_int_offset = (u8) idt_index;
+	}
 
 	// set syscall_reg
 	printk("set syscall_reg\n");
@@ -146,7 +167,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 	else {
 		kvm->nitro_data.syscall_reg = VCPU_REGS_RAX;
 	}
-	printk("kvm:start_syscall_trace: starting syscall trace with syscall_reg = %d, name='%s'\n", kvm->nitro_data.syscall_reg, syscall_reg);
+	//printk("kvm:start_syscall_trace: starting syscall trace with syscall_reg = %d, name='%s'\n", kvm->nitro_data.syscall_reg, syscall_reg);
 
 	if (nitro_mode == NITRO_MODE_TRACE) {
 		kvm->nitro_data.running = 1;
@@ -205,7 +226,7 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 				memset(kvm->nitro_data.shadow_idt.table,0,sregs.idt.limit + 1);
 				kvm_read_guest_virt_system(sregs.idt.base,kvm->nitro_data.shadow_idt.table,(unsigned int)(sregs.idt.limit + 1),vcpu,&error);
 			}
-			sregs.idt.limit=32*8-1;
+			sregs.idt.limit=32*kvm->nitro_data.idt_entry_size-1;
 			kvm_arch_vcpu_ioctl_set_sregs(vcpu,&sregs);
 		}
 	}
@@ -234,10 +255,10 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 
 				kvm->nitro_data.idt_replaced_offset = 0x81;
 
-				//for(j=32;j<(sregs.idt.limit + 1)/8;j++){
-				for(j=((sregs.idt.limit + 1)/idt_entry_size) - 1; j>=32;j--){
-					//printk("kvm:start_syscall_trace: checking IDT gate 0x%hX, p=0x%X, seg. sel.=%hu\n",j,(idt[(j*8)+5] & 0x80),*((u16*) (idt +  (INT_OFFSET*8) + 2)));
-					if((idt[(j*idt_entry_size)+5] & 0x80) == 0){
+				//for(j=32;j<(sregs.idt.limit + 1)/kvm->nitro_data.idt_entry_size;j++){
+				for(j=((sregs.idt.limit + 1)/kvm->nitro_data.idt_entry_size) - 1; j>=32;j--){
+					//printk("kvm:start_syscall_trace: checking IDT gate 0x%hX, p=0x%X, seg. sel.=%hu\n",j,(idt[(j*kvm->nitro_data.idt_entry_size)+5] & 0x80),*((u16*) (idt +  (INT_OFFSET*kvm->nitro_data.idt_entry_size) + 2)));
+					if((idt[(j*kvm->nitro_data.idt_entry_size)+5] & 0x80) == 0){
 						kvm->nitro_data.idt_replaced_offset = (u8)j;
 						break;
 					}
@@ -245,10 +266,10 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 
 				printk("kvm:start_syscall_trace: using empty gate 0x%hX\n",kvm->nitro_data.idt_replaced_offset);
 
-				memcpy(idt + (kvm->nitro_data.idt_replaced_offset*idt_entry_size), idt + (kvm->nitro_data.idt_int_offset*idt_entry_size), idt_entry_size);
+				memcpy(idt + (kvm->nitro_data.idt_replaced_offset*kvm->nitro_data.idt_entry_size), idt + (kvm->nitro_data.idt_int_offset*kvm->nitro_data.idt_entry_size), kvm->nitro_data.idt_entry_size);
 
-				*((u16*) (idt +  (kvm->nitro_data.idt_int_offset*idt_entry_size) + 2)) = DUM_SEG_SELECT;  //set selector
-				//idt[(INT_OFFSET*8) + 5] &= 0x7F;  //unset present bit
+				*((u16*) (idt +  (kvm->nitro_data.idt_int_offset*kvm->nitro_data.idt_entry_size) + 2)) = DUM_SEG_SELECT;  //set selector
+				//idt[(INT_OFFSET*kvm->nitro_data.idt_entry_size) + 5] &= 0x7F;  //unset present bit
 
 				//kvm_write_guest(kvm,kvm->vcpus[i]->arch.mmu.gva_to_gpa(kvm->vcpus[i],sregs.idt.base),idt,(unsigned long)(sregs.idt.limit));
 				kvm_write_guest_virt_system(sregs.idt.base,idt,(unsigned int)(sregs.idt.limit + 1),vcpu,&error);
@@ -349,7 +370,7 @@ int stop_nitro(struct kvm *kvm){
 				//kvm_read_guest(kvm,kvm->vcpus[i]->arch.mmu.gva_to_gpa(kvm->vcpus[i],sregs.idt.base),idt,(unsigned long)(sregs.idt.limit + 1));
 				kvm_read_guest_virt_system(sregs.idt.base,idt,(unsigned int)(sregs.idt.limit + 1),kvm->vcpus[i],&error);
 
-				memcpy(idt + (kvm->nitro_data.idt_int_offset*8), idt + (kvm->nitro_data.idt_replaced_offset*8), 8);
+				memcpy(idt + (kvm->nitro_data.idt_int_offset*kvm->nitro_data.idt_entry_size), idt + (kvm->nitro_data.idt_replaced_offset*kvm->nitro_data.idt_entry_size), kvm->nitro_data.idt_entry_size);
 
 				//kvm_write_guest(kvm,kvm->vcpus[i]->arch.mmu.gva_to_gpa(kvm->vcpus[i],sregs.idt.base),idt,(unsigned long)(sregs.idt.limit));
 				kvm_write_guest_virt_system(sregs.idt.base,idt,(unsigned int)(sregs.idt.limit + 1),kvm->vcpus[i],&error);
@@ -377,7 +398,7 @@ void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *ver
 
 	*cr3 = vcpu->arch.cr3;
 
-	if (vcpu->kvm->nitro_data.pae == 1){//PAE
+	if (vcpu->kvm->nitro_data.mode == PAE){//PAE
 		dir_base = (*cr3) & 0xFFFFFFFFFFFFFFE0;	//see section 4.3 in intel manual
 
 		for (i=0;i<4*8;i+=8){
@@ -389,7 +410,7 @@ void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *ver
 			}
 		}
 	}
-	else if (vcpu->kvm->nitro_data.pae == 2){//IA-32E
+	else if (vcpu->kvm->nitro_data.mode == LONG){//IA-32E
 		dir_base = (*cr3) & 0x000FFFFFFFFFF000;	//see section 4.3 in intel manual
 
 		for (i=0;i<512*8;i+=8){
@@ -401,7 +422,7 @@ void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *ver
 			}
 		}
 	}
-	else{//32-bit
+	else{//32-bit Protected
 		dir_base = (*cr3) & 0xFFFFFFFFFFFFF000;  	//see section 4.3 in intel manual
 
 		for (i=0;i<1024*4;i+=4){
