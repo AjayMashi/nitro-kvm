@@ -17,8 +17,8 @@
 #define DEBUG_PRINT(...)	while (false) {}
 #endif
 
-#undef SHADOW_IDT
-//#define SHADOW_IDT
+//#undef SHADOW_IDT
+#define SHADOW_IDT
 
 
 
@@ -74,6 +74,8 @@ struct gate_descriptor{
 	u16 seg_selector;
 	u16 flags;
 	u16 offset_high;
+	u32 offset_long;
+	u32 reserved;
 };
 
 enum nitro_mode {

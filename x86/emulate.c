@@ -3933,9 +3933,10 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	struct kvm_desc_struct desc_new_cs;
 	struct kvm_desc_struct desc_new_ss;
 	struct tss_segment_32 tss_segment;
-
-	u32 offset, newESP, err, rc, ss, esp, eflags, cs, eip;
-	u16 newSS, newCS;
+	int rc, idt_entry_size = 0;
+	unsigned long offset, newESP, esp, eflags, eip;
+	u32 err;
+	u16 newSS, newCS, ss, cs;
 	u8 cpl, dpl;
 
 	irq = ctxt->vcpu->arch.interrupt.nr;
@@ -3943,11 +3944,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	ops->get_idt(&dt, ctxt->vcpu);
 
 	/* Nitro resets the idt size, ignore if sctracing is enabled */
-	if (((irq << 3) + 7) < dt.size
-#ifdef SHADOW_IDT
-			&& !ctxt->vcpu->kvm->nitro_data.running
-#endif
-	) {
+	if (((irq << 3) + 7) < dt.size && !ctxt->vcpu->kvm->nitro_data.running) {
 		DEBUG_PRINT("critical: interrupt number out of bounds.\n")
 		kvm_clear_exception_queue(ctxt->vcpu);
 		kvm_clear_interrupt_queue(ctxt->vcpu);
@@ -3955,8 +3952,14 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		return X86EMUL_PROPAGATE_FAULT;
 	}
 
+	if (ctxt->mode == X86EMUL_MODE_PROT64 || is_long_mode(ctxt->vcpu)) {
+		idt_entry_size = 16;
+	}
+	else {
+		idt_entry_size = 8;
+	}
 
-	rc = ops->read_std(dt.address + (irq << 3), &int_gate, 8, ctxt->vcpu, &err);
+	rc = ops->read_std(dt.address + (irq << 3), &int_gate, idt_entry_size, ctxt->vcpu, &err);
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
@@ -4003,7 +4006,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	cs = ops->get_segment_selector(VCPU_SREG_CS, ctxt->vcpu);
 	eip = c->regs[VCPU_REGS_RIP];
 
-	DEBUG_PRINT("EIP is at 0x%08X.\n", eip)
+	DEBUG_PRINT("EIP is at 0x%08lX.\n", eip)
 
 	/* Step 2: Loads the segment selector and stack pointer for the new stack
 	 * (that is, the stack for the privilege level being called) from the
@@ -4030,11 +4033,11 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		/* Handle INTER_PRIVILEGE_LEVEL_INTERRUPT */
 		DEBUG_PRINT("Handling INTER_PRIVILEGE_LEVEL_INTERRUPT\n")
 		DEBUG_PRINT("INT: Switching to new privilege level %x stack!\n", dpl)
-		newESP = *((u32 *)((u8 *)(&tss_segment) + (dpl << 3) + 4));
+		newESP = *((unsigned long *)((u8 *)(&tss_segment) + (dpl << 3) + 4)); //IF LONG MODE??????
 		newSS = *((u16 *)((u8 *)(&tss_segment) + (dpl << 3) + 4 + 4));
 
 		DEBUG_PRINT("New privilege level %x stack segment is 0x%04X\n", dpl, newSS)
-		DEBUG_PRINT("New privilege level %x stack pointer is 0x%08X\n", dpl, newESP)
+		DEBUG_PRINT("New privilege level %x stack pointer is 0x%08lX\n", dpl, newESP)
 
 		ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
 		ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
@@ -4121,11 +4124,16 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* Step 7: Begins execution of the handler procedure at the new privilege
 	 * level.
 	 */
+	if (ctxt->mode == X86EMUL_MODE_PROT64 || is_long_mode(ctxt->vcpu)) {
+		offset = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
+	}
+	else {
+		offset = (((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low);
+	}
 
-	offset = (((u32)int_gate.offset_high) << 16) | ((u32)int_gate.offset_low);
 	c->eip = offset;
 
-	DEBUG_PRINT("Interrupt handler is at 0x%08X\n", offset)
+	DEBUG_PRINT("Interrupt handler is at 0x%08lX\n", offset)
 	DEBUG_PRINT("Continuing at CPL %X\n", ops->cpl(ctxt->vcpu))
 
 	/* Prepare for writeback */
@@ -4134,7 +4142,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* Needed for asynchronous interrupt handling */
 	ctxt->eip = c->eip;
 
-	printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
+	printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%lx\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
 	return X86EMUL_CONTINUE;
 }
 
@@ -4156,7 +4164,7 @@ int handle_asynchronous_interrupt(struct kvm_vcpu *vcpu) {
 
 	kvm_x86_ops->set_rflags(vcpu, vcpu->arch.emulate_ctxt.eflags);
 	//kvm_make_request(KVM_REQ_EVENT, vcpu);
-	memcpy(vcpu->arch.regs, c->regs, sizeof c->regs);
+	memcpy(vcpu->arch.regs, c->regs, sizeof vcpu->arch.regs);
 	kvm_rip_write(vcpu, vcpu->arch.emulate_ctxt.eip);
 	kvm_register_write(vcpu, VCPU_REGS_RSP, vcpu->arch.emulate_ctxt.decode.regs[VCPU_REGS_RSP]);
 
