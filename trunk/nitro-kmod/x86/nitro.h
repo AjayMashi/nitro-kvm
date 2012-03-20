@@ -17,8 +17,11 @@
 #define DEBUG_PRINT(...)	while (false) {}
 #endif
 
-//#define SHADOW_IDT
 #undef SHADOW_IDT
+//#define SHADOW_IDT
+
+
+
 
 struct shadow_idt{
 	__u64 base;
@@ -43,6 +46,13 @@ struct sctrace_singlestep {
 	//int exit_reason; // <! currently unused
 };
 
+enum cpu_mode {
+	UNDEF,
+	PROT,
+	PAE,
+	LONG
+};
+
 struct nitro_data{
 	int running;
 	char id[16];
@@ -50,7 +60,9 @@ struct nitro_data{
 	u64 efer_val;
 	u8 idt_int_offset;
 	u8 idt_replaced_offset;
-	int pae;
+	//int pae;
+	enum cpu_mode mode;
+	int idt_entry_size;
 	int syscall_reg;
 	int no_int;
 	struct sctrace_singlestep singlestep;
@@ -95,5 +107,7 @@ void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *ver
 int handle_asynchronous_interrupt(struct kvm_vcpu *vcpu);
 int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		struct x86_emulate_ops *ops, int irq);
+
+
 
 #endif /* SYSCALL_TRACE_H_ */
