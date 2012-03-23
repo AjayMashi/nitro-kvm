@@ -4033,8 +4033,13 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		/* Handle INTER_PRIVILEGE_LEVEL_INTERRUPT */
 		DEBUG_PRINT("Handling INTER_PRIVILEGE_LEVEL_INTERRUPT\n")
 		DEBUG_PRINT("INT: Switching to new privilege level %x stack!\n", dpl)
-		newESP = *((unsigned long *)((u8 *)(&tss_segment) + (dpl << 3) + 4)); //IF LONG MODE??????
-		newSS = *((u16 *)((u8 *)(&tss_segment) + (dpl << 3) + 4 + 4));
+		if (ctxt->mode == X86EMUL_MODE_PROT64 || is_long_mode(ctxt->vcpu)) {
+			newESP = *((unsigned long long *)((u8 *)(&tss_segment) + (dpl << 3) + 4));
+			newSS = dpl; // this seems to be odd, but it's exactly what the intel doc says
+		} else {
+			newESP = *((unsigned long *)((u8 *)(&tss_segment) + (dpl << 3) + 4));
+			newSS = *((u16 *)((u8 *)(&tss_segment) + (dpl << 3) + 4 + 4));
+		}
 
 		DEBUG_PRINT("New privilege level %x stack segment is 0x%04X\n", dpl, newSS)
 		DEBUG_PRINT("New privilege level %x stack pointer is 0x%08lX\n", dpl, newESP)
