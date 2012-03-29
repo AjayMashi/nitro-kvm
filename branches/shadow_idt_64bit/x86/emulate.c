@@ -3963,6 +3963,14 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
+	if(!(int_gate.flags & 1024)){//check if its a 16-bit gate
+		DEBUG_PRINT("critical: 16-bit gate emulation not supported.\n")
+		kvm_clear_exception_queue(ctxt->vcpu);
+		kvm_clear_interrupt_queue(ctxt->vcpu);
+		emulate_exception(ctxt, NP_VECTOR, 0, true);
+		return X86EMUL_PROPAGATE_FAULT;
+	}
+
 	dpl = int_gate.seg_selector & 3;
 	cpl = ops->cpl(ctxt->vcpu);
 
@@ -4026,7 +4034,13 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	 * instructions in asynchronous interrupts.
 	 */
 
-	ctxt->decode.op_bytes = sizeof(unsigned long);
+	//ctxt->decode.op_bytes = sizeof(unsigned long);
+	if (ctxt->mode == X86EMUL_MODE_PROT64 || is_long_mode(ctxt->vcpu)) {
+		ctxt->decode.op_bytes = 8;
+	}
+	else {
+		ctxt->decode.op_bytes = 4;
+	}
 
 	/* Decide if a stack switch is needed */
 	if (dpl < cpl) {
@@ -4049,12 +4063,14 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 		/* Write the new stack pointer */
 		c->regs[VCPU_REGS_RSP] = newESP;
+	}
 
-		/* Step 3: Pushes the temporarily saved SS, ESP, EFLAGS, CS, and
-		 * EIP values for the interrupted procedure’s stack onto the new stack.
-		 */
+	/* Step 3: Pushes the temporarily saved SS, ESP, EFLAGS, CS, and
+	 * EIP values for the interrupted procedure’s stack onto the new stack.
+	 */
 
-		/* SS and ESP are saved only if we change the privilege level */
+	/* SS and ESP are saved only if we change the privilege level or in 64-bit mode*/
+	if ((dpl < cpl) || ctxt->mode == X86EMUL_MODE_PROT64 || is_long_mode(ctxt->vcpu)) {
 		c->src.val = ss;
 		DEBUG_PRINT("Pushed %08lX.\n", c->src.val)
 		emulate_push(ctxt, ops);
