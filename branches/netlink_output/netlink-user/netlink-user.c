@@ -1,14 +1,16 @@
 #include <sys/capability.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
-#include <linux/socket.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
+#ifndef SOL_NETLINK
+#define SOL_NETLINK 270 /* weird, only defined for the kernel */
+#endif
+
 #define NETLINK_NITRO 		26
 #define MAX_PAYLOAD 		1024
-#define SOL_NETLINK		270
 #define NETLINK_MC_GROUP	13
 #define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
 
@@ -19,26 +21,7 @@ struct nlmsghdr *nlh = NULL;
 struct iovec iov;
 int nl_fd;
 struct msghdr nl_msg;
-char recvbuf[1024];
-
-void sendnlmsg(const char *message)
-{
-	memset(nlh, 0, NLMSG_SPACE(MAX_PAYLOAD)); 
-	nlh->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD);
-	nlh->nlmsg_pid = getpid();
-	nlh->nlmsg_flags = 0;
-
-	strcpy((char *)NLMSG_DATA(nlh), message);
-
-	iov.iov_base = (void *) nlh;
-	iov.iov_len = nlh->nlmsg_len;
-	nl_msg.msg_name = (void *) &nl_dest_addr;
-	nl_msg.msg_namelen = sizeof(nl_dest_addr);
-	nl_msg.msg_iov = &iov;
-	nl_msg.msg_iovlen = 1;
-
-	sendmsg(nl_fd, &nl_msg, 0);
-}
+char recvbuf[MAX_PAYLOAD];
 
 void recvnlmsg(char *message)
 {
@@ -68,14 +51,6 @@ void init_nl()
 	nl_dest_addr.nl_groups = 0;
 
 	nlh = (struct nlmsghdr *) malloc(NLMSG_SPACE(MAX_PAYLOAD));
-
-	sendnlmsg("Greeting from User!\n");
-	
-	do {
-		recvnlmsg(recvbuf);
-		printf("%s",recvbuf);
-	} while (strcmp(recvbuf, NETLINK_EXIT) != 0);
-	printf("\n");
 }
 
 int main()
@@ -100,8 +75,13 @@ int main()
 		return -1;
 	}
 	
-	
 	init_nl();
+	
+	do {
+		recvnlmsg(recvbuf);
+		printf("%s",recvbuf);
+	} while (strcmp(recvbuf, NETLINK_EXIT) != 0);
+	printf("\n");
 	
 	return 0;
 }
