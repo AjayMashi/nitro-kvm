@@ -1,4 +1,5 @@
-= Installing NITRO on Ubuntu 11.10 amd64 =
+= Installing NITRO on Ubuntu 11.10 x86_64 =
+*Note:* Nitro is only compatible with the virtualization extensions provided on Intel CPUs.  Nitro will not run on AMD processors.
 ==  The Example system ==
 {{{
 uname -a
