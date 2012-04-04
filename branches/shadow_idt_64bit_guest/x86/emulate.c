@@ -1388,6 +1388,11 @@ int emulate_int_real(struct x86_emulate_ctxt *ctxt,
 #define X86_IDT_ENTRY_CONFORMING			0x1 << 10
 #define X86_IDT_ENTRY_PRESENT				0x1 << 15
 
+static inline void
+setup_syscalls_segments(struct x86_emulate_ctxt *ctxt,
+			struct x86_emulate_ops *ops, struct kvm_desc_struct *cs,
+			struct kvm_desc_struct *ss);
+
 static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		struct x86_emulate_ops *ops)
 {
@@ -1447,7 +1452,7 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
-	//dpl = int_gate.seg_selector & 3; //why from seg selector???
+
 	gate_dpl = (int_gate.flags & X86_IDT_ENTRY_DPL) >> 13;
 	cpl = ops->cpl(ctxt->vcpu);
 
@@ -1485,10 +1490,13 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		//TODO checks
 
 		segment_dpl = int_gate.seg_selector & 3;
-
-		DEBUG_PRINT("PLS: CPL=%d SEG_DPL=%d GATE_DPL=%d\n",cpl,segment_dpl,gate_dpl)
-
 		eflags = ctxt->eflags;
+		ss = ops->get_segment_selector(VCPU_SREG_SS, ctxt->vcpu);
+		esp = c->regs[VCPU_REGS_RSP];
+		cs = ops->get_segment_selector(VCPU_SREG_CS, ctxt->vcpu);
+		eip = c->regs[VCPU_REGS_RIP];
+		ist=int_gate.flags & 0x07;
+
 		if(segment_dpl < cpl){
 			if(eflags & EFLG_VM){//IF VM=1
 				//TODO
@@ -1497,49 +1505,32 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 			}
 			else{//INTER-PRIVILEGE-LEVEL-INTERRUPT
 				DEBUG_PRINT("INT EMU: INTER-PRIVILEGE-LEVEL-INTERRUPT\n");
-				return X86EMUL_UNHANDLEABLE;
-			}
-		}
-		else{
-			if(eflags & EFLG_VM){//IF VM=1
-				DEBUG_PRINT("INT EMU: Virt 8086 mode not allowed\n");
-				kvm_clear_exception_queue(ctxt->vcpu);
-				kvm_clear_interrupt_queue(ctxt->vcpu);
-				emulate_gp(ctxt, 0);
-				return X86EMUL_PROPAGATE_FAULT;
-			}
-			if(segment_dpl > cpl){
-				DEBUG_PRINT("INT EMU: DPL > CPL\n");
-				kvm_clear_exception_queue(ctxt->vcpu);
-				kvm_clear_interrupt_queue(ctxt->vcpu);
-				emulate_gp(ctxt, 0);
-				return X86EMUL_PROPAGATE_FAULT;
-			}
-			else{//INTRA-PRIVILEGE-LEVEL-INTERRUPT
-				DEBUG_PRINT("INT EMU: INTRA-PRIVILEGE-LEVEL-INTERRUPT\n");
-
-
-				//TODO: check stack size for 16 & 32 bit gates and canonical address for 64 bit gate
-
-				//TODO: check segment limits
-
-				ss = ops->get_segment_selector(VCPU_SREG_SS, ctxt->vcpu);
-				esp = c->regs[VCPU_REGS_RSP];
-				cs = ops->get_segment_selector(VCPU_SREG_CS, ctxt->vcpu);
-				eip = c->regs[VCPU_REGS_RIP];
 
 				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
-					ist=int_gate.flags & 0x07;
-					newESP = 0;
-					if(ist != 0){
+					//TODO: check TSS limit
+
+					newSS = segment_dpl;
+					if(ist == 0)
+						newESP = *((unsigned long *)((&tss_segment_64) + (segment_dpl << 3) + 4));
+					else
 						newESP = *((unsigned long *)((&tss_segment_64) + (ist << 3) + 28));
-					}
-					//newSS = segment_dpl;
+				}
+				else{//32-bit
+					//TODO: check TSS limit
 
-					newCS = int_gate.seg_selector;
-					newCS = (newCS & ~SELECTOR_RPL_MASK) | cpl;
+					newSS = *((u16 *)((&tss_segment_32) + (segment_dpl << 3) + 4 + 4));
+					newESP = *((unsigned long *)((&tss_segment_32) + (segment_dpl << 3) + 4));
 
-					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
+					//TODO: do segment checks
+				}
+
+				//TODO: check stack size and 64-bit canonical
+
+				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
+					rc = load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+					c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
 
 
 					ctxt->decode.op_bytes = 8;
@@ -1584,12 +1575,171 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 						return rc;
 
 
-					if(newESP != 0)//not sure about this
-						c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
+					newCS = int_gate.seg_selector;
+					//newCS = (newCS & ~SELECTOR_RPL_MASK) | cpl;
+
+					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
+
+					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+					c->eip = newEIP;
+
+					if ((int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_32 ||
+						(int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_16)
+						ctxt->eflags &= ~EFLG_IF;
+
+					ctxt->eflags &= ~(EFLG_TF | EFLG_VM | EFLG_RF | EFLG_NT);
+				}
+				else{//32-bit
+					DEBUG_PRINT("32-bit\n")
+
+					setup_syscalls_segments(ctxt, ops, &desc_new_cs, &desc_new_ss);
+					ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
+					ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
 
 					//rc = load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
 					//if (rc != X86EMUL_CONTINUE)
 					//	return rc;
+					c->regs[VCPU_REGS_RSP] = newESP;
+
+					ctxt->decode.op_bytes = 4;
+
+					c->src.val = ss;
+					DEBUG_PRINT("Pushed SS: %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = esp;
+					DEBUG_PRINT("Pushed SP %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = eflags;
+					DEBUG_PRINT("Pushed EFLAGS %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = cs;
+					DEBUG_PRINT("Pushed CS %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					if (c->b == 0xcd) {
+						c->src.val = eip + 2;
+					} else {
+						c->src.val = eip;
+					}
+					DEBUG_PRINT("Pushed IP: %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					newCS = int_gate.seg_selector;
+					newCS = (newCS & ~SELECTOR_RPL_MASK);
+
+					newEIP = (((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low);;
+
+					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+					c->eip = newEIP;
+
+					if ((int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_32 ||
+						(int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_16)
+						ctxt->eflags &= ~EFLG_IF;
+
+					ctxt->eflags &= ~(EFLG_TF | EFLG_VM | EFLG_RF | EFLG_NT);
+				}
+
+			}
+		}
+		else{
+			if(eflags & EFLG_VM){//IF VM=1
+				DEBUG_PRINT("INT EMU: Virt 8086 mode not allowed\n");
+				kvm_clear_exception_queue(ctxt->vcpu);
+				kvm_clear_interrupt_queue(ctxt->vcpu);
+				emulate_gp(ctxt, 0);
+				return X86EMUL_PROPAGATE_FAULT;
+			}
+			if(segment_dpl > cpl){
+				DEBUG_PRINT("INT EMU: DPL > CPL\n");
+				kvm_clear_exception_queue(ctxt->vcpu);
+				kvm_clear_interrupt_queue(ctxt->vcpu);
+				emulate_gp(ctxt, 0);
+				return X86EMUL_PROPAGATE_FAULT;
+			}
+			else{//INTRA-PRIVILEGE-LEVEL-INTERRUPT
+				DEBUG_PRINT("INT EMU: INTRA-PRIVILEGE-LEVEL-INTERRUPT\n");
+
+
+				//TODO: check stack size for 16 & 32 bit gates and canonical address for 64 bit gate
+
+				//TODO: check segment limits
+
+
+
+				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
+					if(ist != 0){//not sure about this
+						newESP = *((unsigned long *)((&tss_segment_64) + (ist << 3) + 28));
+						c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
+					}
+
+					ctxt->decode.op_bytes = 8;
+
+					c->src.val = ss;
+					DEBUG_PRINT("Pushed SS: %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = esp;
+					DEBUG_PRINT("Pushed SP %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = eflags;
+					DEBUG_PRINT("Pushed EFLAGS %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					c->src.val = cs;
+					DEBUG_PRINT("Pushed CS %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					if (c->b == 0xcd) {
+						c->src.val = eip + 2;
+					} else {
+						c->src.val = eip;
+					}
+					DEBUG_PRINT("Pushed IP: %08lX.\n", c->src.val)
+					emulate_push(ctxt, ops);
+					rc = writeback(ctxt, ops);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
+
+					newCS = int_gate.seg_selector;
+					newCS = (newCS & ~SELECTOR_RPL_MASK) | cpl;
+
+					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
+
 					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
 					if (rc != X86EMUL_CONTINUE)
 						return rc;
