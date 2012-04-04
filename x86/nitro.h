@@ -106,9 +106,8 @@ int stop_syscall_singlestep(struct kvm *kvm);
 
 void get_process_hardware_id(struct kvm_vcpu *vcpu, unsigned long *cr3, u32 *verifier, unsigned long *pde);
 
-int handle_asynchronous_interrupt(struct kvm_vcpu *vcpu);
-int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
-		struct x86_emulate_ops *ops, int irq);
+//int handle_asynchronous_interrupt(struct kvm_vcpu *vcpu);
+//extern int emulate_int_prot(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops, int irq);
 
 
 

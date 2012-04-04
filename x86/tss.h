@@ -1,6 +1,18 @@
 #ifndef __TSS_SEGMENT_H
 #define __TSS_SEGMENT_H
 
+struct tss_segment_64 {
+   u32 ignored0;
+   u64 rsp0;
+   u64 rsp1;
+   u64 rsp2;
+   u64 ist[8]; /* ist[0] is ignored, ist[1] to ist[7] will be used */
+   u64 ignored1;
+   u16 ignored2;
+   u16 ioMapBase;
+   //char ioPermissionMap[8192];
+};
+
 struct tss_segment_32 {
 	u32 prev_task_link;
 	u32 esp0;
