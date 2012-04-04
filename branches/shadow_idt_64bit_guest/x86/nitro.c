@@ -24,6 +24,7 @@ extern int kvm_write_guest_virt_system(gva_t addr, void *val, unsigned int bytes
 extern int kvm_read_guest_virt_system(gva_t addr, void *val, unsigned int bytes, struct kvm_vcpu *vcpu, u32 *error);
 extern int is_sysenter_sysreturn(struct kvm_vcpu *vcpu);
 extern int is_int(struct kvm_vcpu *vcpu);
+extern int emulate_int(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops, unsigned long irq);
 
 int nitro_mod_init(void){
 	return 0;
@@ -482,6 +483,35 @@ int print_trace_proxy(char prefix, struct kvm_vcpu *vcpu){
 	return ret;
 }
 
+int handle_apic_interrupt(struct kvm_vcpu *vcpu) {
+	u32 rc;
+	struct decode_cache *c = &vcpu->arch.emulate_ctxt.decode;
+
+	kvm_clear_exception_queue(vcpu);
+
+    kvm_register_read(vcpu, VCPU_REGS_RAX);
+    kvm_register_read(vcpu, VCPU_REGS_RSP);
+    kvm_register_read(vcpu, VCPU_REGS_RIP);
+    vcpu->arch.regs_dirty = ~0;
+	/* this is needed for vmware backdor interface to work since it
+	   changes registers values  during IO operation */
+	memcpy(c->regs, vcpu->arch.regs, sizeof c->regs);
+
+	rc = emulate_int(&vcpu->arch.emulate_ctxt, vcpu->arch.emulate_ctxt.ops, (int) vcpu->arch.interrupt.nr);
+
+	/* Needed for asynchronous interrupt handling */
+	vcpu->arch.emulate_ctxt.eip = c->eip;
+
+	kvm_x86_ops->set_rflags(vcpu, vcpu->arch.emulate_ctxt.eflags);
+	//kvm_make_request(KVM_REQ_EVENT, vcpu);
+	memcpy(vcpu->arch.regs, c->regs, sizeof vcpu->arch.regs);
+	kvm_rip_write(vcpu, vcpu->arch.emulate_ctxt.eip);
+	kvm_register_write(vcpu, VCPU_REGS_RSP, vcpu->arch.emulate_ctxt.decode.regs[VCPU_REGS_RSP]);
+
+
+	return rc;
+}
+
 int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	int er;
 	struct kvm_sregs sregs;
@@ -506,8 +536,9 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 		if (is_int(vcpu)) {
 			er = emulate_instruction(vcpu, 0, 0, 0);
 		} else {
-			DEBUG_PRINT("Asynchronous interrupt detected.\n")
-			er = handle_asynchronous_interrupt(vcpu);
+			DEBUG_PRINT("APIC interrupt detected.\n")
+			er = handle_apic_interrupt(vcpu);
+			printk("rc=%d\n",er);
 		}
 		kvm_clear_exception_queue(vcpu);
 		kvm_clear_interrupt_queue(vcpu);
