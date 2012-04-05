@@ -1500,6 +1500,8 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		eip = c->regs[VCPU_REGS_RIP];
 		ist=int_gate.flags & 0x07;
 
+		DEBUG_PRINT("PLS: cpl=%d seg_dpl=%d gate_dpl=%d\n",cpl,segment_dpl, gate_dpl)
+
 		setup_syscalls_segments(ctxt, ops, &desc_new_cs, &desc_new_ss);
 
 		if(segment_dpl < cpl){
@@ -1514,7 +1516,7 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
 					//TODO: check TSS limit
 
-					newSS = segment_dpl;
+					newSS = (u16) segment_dpl;
 					if(ist == 0)
 						newESP = *((u64*)(((u8*)&tss_seg_64) + (segment_dpl << 3) + 4));
 					else
@@ -1536,6 +1538,7 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 				//TODO: check stack size and 64-bit canonical
 
 				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
+					/*
 					ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
 					ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
 
@@ -1556,44 +1559,33 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
 					c->eip = newEIP;
-					ctxt->eip = newEIP;
+					//ctxt->eip = newEIP;
 
+					 */
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-					rc = load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
-					if (rc != X86EMUL_CONTINUE)
-						return rc;
+					DEBUG_PRINT("1 newSS=%u\n",newSS)
+					ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
+					ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
+					//rc = load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
+					//if (rc != X86EMUL_CONTINUE)
+					//	return rc;
 					c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
 
+					DEBUG_PRINT("2\n")
+
 					newCS = int_gate.seg_selector;
-					//newCS = (newCS & ~SELECTOR_RPL_MASK) | cpl;
+					newCS = (newCS & ~SELECTOR_RPL_MASK);
 
 					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
 
-					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
-					if (rc != X86EMUL_CONTINUE)
-						return rc;
+					ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
+					ops->set_segment_selector(newCS, VCPU_SREG_CS, ctxt->vcpu);
+					//rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					//if (rc != X86EMUL_CONTINUE)
+					//	return rc;
 					c->eip = newEIP;
-*/
+
+					DEBUG_PRINT("3\n")
 
 					ctxt->decode.op_bytes = 8;
 
@@ -1669,7 +1661,7 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 					newEIP = (((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low);
 					c->eip = newEIP;
-					ctxt->eip = newEIP;
+					//ctxt->eip = newEIP;
 
 
 					ctxt->decode.op_bytes = 4;
@@ -1796,14 +1788,24 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 					if (rc != X86EMUL_CONTINUE)
 						return rc;
 
+/*
 					newCS = int_gate.seg_selector;
-					newCS = (newCS & ~SELECTOR_RPL_MASK) | cpl;
+					newCS = (newCS & ~SELECTOR_RPL_MASK);
 
-					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
+					ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
+					ops->set_segment_selector(newCS, VCPU_SREG_CS, ctxt->vcpu);
+*/
+
+					newCS = int_gate.seg_selector;
+					newCS = (newCS & ~SELECTOR_RPL_MASK);// | cpl;
+
+
 
 					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
 					if (rc != X86EMUL_CONTINUE)
 						return rc;
+
+					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
 					c->eip = newEIP;
 
 
