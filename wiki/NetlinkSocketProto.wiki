@@ -19,12 +19,10 @@ You'll find the user space portion of the netlink communications inside of the n
 
 {{{
 struct netlink_proto {
-   u32 vmid;
+   u32 vm_id;
    u64 syscall_number;
-   u32 payload_size;
-   enum kvm_reg register_name;  /* defined in kvm_host.h */
-   u8 format;
-   u32 size;
+   u32 rule_id;
+   u32 size; //size of data
    u8 *data;
 }
 }}}
