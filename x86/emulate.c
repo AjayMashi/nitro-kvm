@@ -1393,6 +1393,39 @@ setup_syscalls_segments(struct x86_emulate_ctxt *ctxt,
 			struct x86_emulate_ops *ops, struct kvm_desc_struct *cs,
 			struct kvm_desc_struct *ss);
 
+int my_load_segment_descriptor(struct x86_emulate_ctxt *ctxt,
+				   struct x86_emulate_ops *ops,
+				   u16 selector, int seg)
+{
+	struct kvm_desc_struct seg_desc;
+	u8 dpl, rpl, cpl;
+	unsigned err_vec = GP_VECTOR;
+	u32 err_code = 0;
+	bool null_selector = !(selector & ~0x3); /* 0000-0003 are null */
+	int ret;
+
+	memset(&seg_desc, 0, sizeof seg_desc);
+
+	if (null_selector) /* for NULL selector skip all following checks */
+		goto load;
+
+	ret = read_segment_descriptor(ctxt, ops, selector, &seg_desc);
+	if (ret != X86EMUL_CONTINUE)
+		return ret;
+
+	if (seg_desc.s) {
+		/* mark segment as accessed */
+		seg_desc.type |= 1;
+		ret = write_segment_descriptor(ctxt, ops, selector, &seg_desc);
+		if (ret != X86EMUL_CONTINUE)
+			return ret;
+	}
+load:
+	ops->set_segment_selector(selector, seg, ctxt->vcpu);
+	ops->set_cached_descriptor(&seg_desc, seg, ctxt->vcpu);
+	return X86EMUL_CONTINUE;
+}
+
 static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 		struct x86_emulate_ops *ops)
 {
@@ -1516,6 +1549,8 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
 					//TODO: check TSS limit
 
+					DEBUG_PRINT("ist=%x\n",ist)
+
 					newSS = (u16) segment_dpl;
 					if(ist == 0)
 						newESP = *((u64*)(((u8*)&tss_seg_64) + (segment_dpl << 3) + 4));
@@ -1563,29 +1598,28 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 					 */
 
-					DEBUG_PRINT("1 newSS=%u\n",newSS)
-					ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
-					ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
-					//rc = load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
-					//if (rc != X86EMUL_CONTINUE)
-					//	return rc;
+					DEBUG_PRINT("newSS=%x\n",newSS)
 					c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
+					//ops->set_cached_descriptor(&desc_new_ss, VCPU_SREG_SS, ctxt->vcpu);
+					//ops->set_segment_selector(newSS, VCPU_SREG_SS, ctxt->vcpu);
+					rc = my_load_segment_descriptor(ctxt, ops, newSS, VCPU_SREG_SS);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
 
-					DEBUG_PRINT("2\n")
 
 					newCS = int_gate.seg_selector;
 					newCS = (newCS & ~SELECTOR_RPL_MASK);
 
 					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
 
-					ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
-					ops->set_segment_selector(newCS, VCPU_SREG_CS, ctxt->vcpu);
-					//rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
-					//if (rc != X86EMUL_CONTINUE)
-					//	return rc;
+					DEBUG_PRINT("newCS=%x, newEIP=%lx\n",newCS,newEIP)
+					//ops->set_cached_descriptor(&desc_new_cs, VCPU_SREG_CS, ctxt->vcpu);
+					//ops->set_segment_selector(newCS, VCPU_SREG_CS, ctxt->vcpu);
+					rc = my_load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					if (rc != X86EMUL_CONTINUE)
+						return rc;
 					c->eip = newEIP;
 
-					DEBUG_PRINT("3\n")
 
 					ctxt->decode.op_bytes = 8;
 
@@ -1808,6 +1842,7 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 					newEIP = (((unsigned long)int_gate.offset_long) << 32) | ((((unsigned long)int_gate.offset_high) << 16) | ((unsigned long)int_gate.offset_low));
 					c->eip = newEIP;
 
+					DEBUG_PRINT("newCS=%x, newEIP=%lx\n",newCS,newEIP)
 
 					if ((int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_32 ||
 						(int_gate.flags & X86_IDT_ENTRY_TYPE_MASK) == X86_IDT_ENTRY_TYPE_IRPT_GATE_16)
