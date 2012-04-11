@@ -21,6 +21,7 @@ struct mem_val
 
 {{{
 struct rule_action
+  u32 rule_id  //user-defined rule id
   flag halt //if 1, halt VM on rule hit
   flag direct //if 1, output value of target reg
   uint64 target_address //target memory address (direct may not equal 1)
