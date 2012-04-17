@@ -4,24 +4,50 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-#ifndef SOL_NETLINK
-#define SOL_NETLINK 270 /* weird, only defined for the kernel */
-#endif
+#include <signal.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #define NETLINK_NITRO 		26
-#define MAX_PAYLOAD 		1024
 #define NETLINK_MC_GROUP	13
+#define MAX_PAYLOAD 		1024
+#define NETLINK_START		"NITRO_NETLINK_START"
 #define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
+
+#define SOL_NETLINK		270 /* only defined for the kernel */
+#define MAX_LINKS		32 /* see netlink.h */
+
+#if NETLINK_NITRO > MAX_LINKS
+#define NETLINK_NITRO MAX_LINKS
+#endif
 
 /* Install libcap-dev */
 
 struct sockaddr_nl nl_src_addr, nl_dest_addr;
 struct nlmsghdr *nlh = NULL;
 struct iovec iov;
-int nl_fd;
+int nl_fd, group;
 struct msghdr nl_msg;
 char recvbuf[MAX_PAYLOAD];
+
+void sendnlmsg(const char *message)
+{
+	memset(nlh, 0, NLMSG_SPACE(MAX_PAYLOAD)); 
+	nlh->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD);
+	nlh->nlmsg_pid = getpid();
+	nlh->nlmsg_flags = 0;
+
+	strcpy((char *)NLMSG_DATA(nlh), message);
+
+	iov.iov_base = (void *) nlh;
+	iov.iov_len = nlh->nlmsg_len;
+	nl_msg.msg_name = (void *) &nl_dest_addr;
+	nl_msg.msg_namelen = sizeof(nl_dest_addr);
+	nl_msg.msg_iov = &iov;
+	nl_msg.msg_iovlen = 1;
+
+	sendmsg(nl_fd, &nl_msg, 0);
+}
 
 void recvnlmsg(char *message)
 {
@@ -32,7 +58,7 @@ void recvnlmsg(char *message)
 
 void init_nl()
 {
-	int group = 1 << NETLINK_MC_GROUP;
+	group = 1 << NETLINK_MC_GROUP;
 	
 	nl_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_NITRO);
 	memset(&nl_msg, 0, sizeof(nl_msg));
@@ -51,6 +77,41 @@ void init_nl()
 	nl_dest_addr.nl_groups = 0;
 
 	nlh = (struct nlmsghdr *) malloc(NLMSG_SPACE(MAX_PAYLOAD));
+
+	sendnlmsg(NETLINK_START);
+	
+	do {
+		recvnlmsg(recvbuf);
+		printf("%s",recvbuf);
+	} while (strcmp(recvbuf, NETLINK_EXIT) != 0);
+	printf("\n");
+}
+
+static void cleanup_on_int(int signo, struct siginfo *si, void *ctx)
+{
+	printf("Caught signal %d\n",signo);
+	printf("Cleanup, please wait ...\n");
+	
+	setsockopt(nl_fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, &group, sizeof(group));
+	
+	exit(signo);
+}
+
+void installSignalHandler() 
+{
+	struct sigaction sa;
+	
+	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGINT);
+
+	sa.sa_flags = SA_ONESHOT | SA_SIGINFO;
+	sa.sa_sigaction = cleanup_on_int;
+	
+	if (sigaction(SIGINT, &sa, NULL))
+	{
+		printf("sigaction failed, line %d, %d/%s\n", __LINE__, errno, strerror(errno));
+		exit(2);
+	}
 }
 
 int main()
@@ -71,17 +132,12 @@ int main()
 	if (getuid() != 0 
 	&& (data.effective & CAP_TO_MASK(CAP_NET_ADMIN)) == 0
 	&& (data.permitted & CAP_TO_MASK(CAP_NET_ADMIN)) == 0) {
-		printf("FATAL: Need to run as root or have the CAP_NET_ADMIN capability to listen to netlink multicasts. Aborting ...\n");
+		printf("FATAL: Need to run as root or have the CAP_NET_ADMIN capability to listen for netlink multicasts. Aborting ...\n");
 		return -1;
 	}
-	
+
+	installSignalHandler();
 	init_nl();
-	
-	do {
-		recvnlmsg(recvbuf);
-		printf("%s",recvbuf);
-	} while (strcmp(recvbuf, NETLINK_EXIT) != 0);
-	printf("\n");
 	
 	return 0;
 }
