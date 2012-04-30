@@ -24,9 +24,16 @@ extern int is_sysenter_sysreturn(struct kvm_vcpu *vcpu);
 extern int is_int(struct kvm_vcpu *vcpu);
 extern int nitro_output_init(void);
 extern int nitro_output_exit(void);
-extern int nitro_output_append(char *msg);
 
 int nitro_mod_init(void){
+	int output_init;
+
+	output_init = nitro_output_init();
+	if (output_init != 0) {
+		printk("WARNING: Unable to initialize nitro output system. Start aborted.\n");
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -64,7 +71,7 @@ int nitro_kvm_exit(struct kvm *kvm){
 }
 
 int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_mode nitro_mode){
-	int i, output_init;
+	int i;
 	u16 j;
 	struct kvm_sregs sregs;
 	u8 *idt;
@@ -76,13 +83,6 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 #ifndef SHADOW_IDT
 	int idt_entry_size = 8; /* 8 if 32bit, 16 if 64bit */
 #endif
-
-	output_init = nitro_output_init();
-
-	if (output_init != 0) {
-		printk("CRITICAL: Unable to initialize nitro output system. Start aborted.\n");
-		return 1;
-	}
 
 	NITRO_OUTPUT("idt_index = %ld, syscall_reg = %s\n", (long int) idt_index, syscall_reg)
 
@@ -494,7 +494,7 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 																		 //check if its our expected error code for int handling
 																	     //(disregard bottom 3 bits as these are status)
 
-		print_trace_proxy('i',vcpu);
+		//print_trace_proxy('i',vcpu);
 
 		kvm_clear_exception_queue(vcpu);
 		kvm_clear_interrupt_queue(vcpu);

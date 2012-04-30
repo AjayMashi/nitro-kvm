@@ -14,6 +14,9 @@
 #define NETLINK_START		"NITRO_NETLINK_START"
 #define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
 
+#define NITRO_NLMSG_TYPE_BINARY	0
+#define NITRO_NLMSG_TYPE_TEXT	1
+
 #define SOL_NETLINK		270 /* only defined for the kernel */
 #define MAX_LINKS		32 /* see netlink.h */
 
@@ -49,11 +52,15 @@ void sendnlmsg(const char *message)
 	sendmsg(nl_fd, &nl_msg, 0);
 }
 
-void recvnlmsg(char *message)
-{
+void recvnlmsg(char *buffer) {
 	memset(nlh, 0, NLMSG_SPACE(MAX_PAYLOAD));
 	recvmsg(nl_fd, &nl_msg, 0);
-	strcpy(message, NLMSG_DATA(nlh));
+	memcpy(buffer, NLMSG_DATA(nlh), NLMSG_ALIGN(NLMSG_SPACE(MAX_PAYLOAD) - sizeof(struct nlmsghdr)));
+	printf("nlmsg_type: %d\n", nlh->nlmsg_type);
+	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_BINARY)
+		printf("%08X %08X\n", *(int *)buffer, *((int *)(buffer + 4)));
+	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_TEXT)
+		printf("%s", buffer);
 }
 
 void init_nl()
@@ -68,7 +75,7 @@ void init_nl()
 	nl_src_addr.nl_pid = getpid();
 	nl_src_addr.nl_groups = 1 << NETLINK_MC_GROUP;
 
-	bind(nl_fd, (struct sockaddr*) &nl_src_addr, sizeof(nl_src_addr));
+	bind(nl_fd, (struct sockaddr *) &nl_src_addr, sizeof(nl_src_addr));
 	setsockopt(nl_fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
 	
 	memset(&nl_dest_addr, 0, sizeof(nl_src_addr));
@@ -82,7 +89,6 @@ void init_nl()
 	
 	do {
 		recvnlmsg(recvbuf);
-		printf("%s",recvbuf);
 	} while (strcmp(recvbuf, NETLINK_EXIT) != 0);
 	printf("\n");
 }

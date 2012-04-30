@@ -22,7 +22,7 @@
 										/* Be sure to pick a value < MAX_LINKS as 		*/
 										/* defined in linux/netlink.h (default is 32) 	*/
 #define NETLINK_MC_GROUP	13			/* Multicast group for receiving user space 	*/
-										/* processes 									*/
+										/* processes (needs to be < 32)					*/
 #define OUTPUT_MAX_CHARS	1024		/* Buffer size for each output message 			*/
 #define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
 

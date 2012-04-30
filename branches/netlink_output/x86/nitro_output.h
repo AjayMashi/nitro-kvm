@@ -8,31 +8,42 @@
 #ifndef NITRO_OUTPUT_H_
 #define NITRO_OUTPUT_H_
 
-
-int nitro_output_append(char *msg);
-int nitro_output_binary(u8 *data, int size);
+int nitro_output_data(u8 *data, int length, int type);
 int nitro_output_init(void);
 int nitro_output_exit(void);
 
 #ifdef USE_NETLINK
+
+#define MAX_LINKS 			32	/* see include/linux/netlink.h */
+#define NITRO_NLMSG_TYPE_BINARY		0
+#define NITRO_NLMSG_TYPE_TEXT		1
+#define NITRO_HEXDUMP_BPL		16	/* bytecount per line in hexdumps */
+
 #if NETLINK_NITRO > MAX_LINKS
 #define NETLINK_NITRO MAX_LINKS
 #endif
+
 #define NITRO_OUTPUT(...) { \
 	char *str; \
 	str = (char *) kmalloc(OUTPUT_MAX_CHARS, GFP_KERNEL); \
 	sprintf(str, __VA_ARGS__); \
-	nitro_output_append(str); \
+	nitro_output_data(str, strlen(str), NITRO_NLMSG_TYPE_TEXT); \
 	kfree(str); \
 }
 #else
-#define NITRO_OUTPUT(...)	printk(__VA_ARGS__);
+#define NITRO_OUTPUT(...)	printk(__VA_ARGS__);	/* speed hack */
 #endif
 
+#define NITRO_OUTPUT_BINARY(data, len) { \
+	nitro_output_data(data, len, NITRO_NLMSG_TYPE_BINARY); \
+}
+
 #ifdef DEBUG_INTERRUPTS
-#define DEBUG_PRINT(...)	NITRO_OUTPUT(...)
+#define DEBUG_PRINT(...)		NITRO_OUTPUT(...)
 #else
-#define DEBUG_PRINT(...)	while (0) {}
+#define DEBUG_PRINT(...)		while (0) {}
 #endif
+
+
 
 #endif /* NITRO_OUTPUT_H_ */

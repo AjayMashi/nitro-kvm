@@ -3958,6 +3958,8 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
+	NITRO_OUTPUT_BINARY((u8 *)&int_gate, sizeof(int_gate));
+
 	dpl = int_gate.seg_selector & 3;
 	cpl = ops->cpl(ctxt->vcpu);
 
