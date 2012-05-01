@@ -86,17 +86,17 @@ int nitro_output_data(u8 *data, int length, int type) {
 	/* No data given */
 	if (data == NULL) return -4;
 
+	/* System is not initialized */
+	if (nl_socket == NULL) return -1;
+	
 	/* Data does not fit into one fixed-length netlink packet */ 
 	/* TODO: Fragment packets accordingly ... */
 	if ((type == NITRO_NLMSG_TYPE_BINARY && length > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr)))
 		|| (type == NITRO_NLMSG_TYPE_TEXT && strlen(data) > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr))))
 		return -5;
-	
-	/* System is not initialized */
-	if (nl_socket == NULL) return -1;
 
 	/* No user space process registered yet */
-	//if (netlink_has_listeners(nl_socket, 1 << NETLINK_MC_GROUP) == 0) return -2;
+	/* if (netlink_has_listeners(nl_socket, 1 << NETLINK_MC_GROUP) == 0) return -2; */
 	/* TODO: Should be called for performance reasons, however expect kernel panics 
 	 * due to race conditions when commenting in the line above */
 
@@ -110,22 +110,32 @@ int nitro_output_data(u8 *data, int length, int type) {
 
 	/* Sender is _the_kernel_! */
 	NETLINK_CB(buf).pid = 0;
+	
+	/* Set nlmsg_type to signal whether we're sending human readable or binary to the user. */
 	nl_header->nlmsg_type = type;
 	
-	memcpy((u8 *)NLMSG_DATA(nl_header), data, length);
+	if (type == NITRO_NLMSG_TYPE_BINARY)
+		memcpy((u8 *)NLMSG_DATA(nl_header), data, length);
+	if (type == NITRO_NLMSG_TYPE_TEXT)
+		strcpy((u8 *)NLMSG_DATA(nl_header), data);
 	
+	/* Update headerfield packetsize */
 	nlmsg_end(buf, nl_header);
+	
+	/* Broadcast! Note that only userspace programms with UID = 0 will receive it. */
 	err = nlmsg_multicast(nl_socket, buf, 0, 1 << NETLINK_MC_GROUP, MSG_DONTWAIT);
+	
 	if (err) {
 		printk("WARNING: netlink message dropped");
 		if (type == NITRO_NLMSG_TYPE_BINARY) {
 			printk(":\n");
 			nitro_print_hexdump(data, length);
 		} else {
-			printk(":\n\"%s\"", data);
+			printk(":\n\"%s\"\n", data);
 		}
 		return -3;
 	}
+	
 #else
 	if (type == NITRO_NLMSG_TYPE_BINARY) {
 		nitro_print_hexdump(data, length);

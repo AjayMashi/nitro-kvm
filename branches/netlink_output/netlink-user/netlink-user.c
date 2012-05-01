@@ -53,14 +53,21 @@ void sendnlmsg(const char *message)
 }
 
 void recvnlmsg(char *buffer) {
+	int len;
+	
 	memset(nlh, 0, NLMSG_SPACE(MAX_PAYLOAD));
-	recvmsg(nl_fd, &nl_msg, 0);
+	len = recvmsg(nl_fd, &nl_msg, 0);
+	if (!NLMSG_OK(nlh, len)) return;
+	
 	memcpy(buffer, NLMSG_DATA(nlh), NLMSG_ALIGN(NLMSG_SPACE(MAX_PAYLOAD) - sizeof(struct nlmsghdr)));
-	printf("nlmsg_type: %d\n", nlh->nlmsg_type);
+
+	printf("nlmsg_type: %d nlmsg_len: %d", nlh->nlmsg_type, len);
 	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_BINARY)
-		printf("%08X %08X\n", *(int *)buffer, *((int *)(buffer + 4)));
-	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_TEXT)
+		printf("\n%08X %08X\n", *(int *)buffer, *((int *)(buffer + 4)));
+	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_TEXT) {
+		printf(" nla_strlen: %d\n", strlen(buffer));
 		printf("%s", buffer);
+	}
 }
 
 void init_nl()
