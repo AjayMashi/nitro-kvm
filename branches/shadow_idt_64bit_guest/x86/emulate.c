@@ -1776,7 +1776,8 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 
 				if(ctxt->mode == X86EMUL_MODE_PROT64){//64-bit gate
-					if(ist != 0){//not sure about this
+					DEBUG_PRINT("IST: %d.\n", ist)
+					if(ist != 0){
 						newESP = *((u64*)(((u8*)&tss_seg_64) + (ist << 3) + 28));
 						c->regs[VCPU_REGS_RSP] = newESP & 0xfffffffffffffff0;
 					}
@@ -1812,8 +1813,10 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 						return rc;
 
 					if (c->b == 0xcd) {
+						DEBUG_PRINT("Sanity: int\n")
 						c->src.val = eip + 2;
 					} else {
+						DEBUG_PRINT("Sanity: apic\n")
 						c->src.val = eip;
 					}
 					DEBUG_PRINT("Pushed IP: %08lX.\n", c->src.val)
@@ -1835,7 +1838,8 @@ static int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 
 
 
-					rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					//rc = load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
+					rc = my_load_segment_descriptor(ctxt, ops, newCS, VCPU_SREG_CS);
 					if (rc != X86EMUL_CONTINUE)
 						return rc;
 

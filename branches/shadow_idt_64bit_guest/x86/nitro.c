@@ -486,6 +486,7 @@ int print_trace_proxy(char prefix, struct kvm_vcpu *vcpu){
 int handle_apic_interrupt(struct kvm_vcpu *vcpu) {
 	u32 rc;
 	struct decode_cache *c = &vcpu->arch.emulate_ctxt.decode;
+	int cs_db, cs_l;
 
 	kvm_clear_exception_queue(vcpu);
 
@@ -493,20 +494,48 @@ int handle_apic_interrupt(struct kvm_vcpu *vcpu) {
     kvm_register_read(vcpu, VCPU_REGS_RSP);
     kvm_register_read(vcpu, VCPU_REGS_RIP);
     vcpu->arch.regs_dirty = ~0;
+
+    /*
+	kvm_x86_ops->get_cs_db_l_bits(vcpu, &cs_db, &cs_l);
+	vcpu->arch.emulate_ctxt.vcpu = vcpu;
+	vcpu->arch.emulate_ctxt.eflags = kvm_x86_ops->get_rflags(vcpu);
+	vcpu->arch.emulate_ctxt.eip = kvm_rip_read(vcpu);
+	vcpu->arch.emulate_ctxt.mode =
+		(!is_protmode(vcpu)) ? X86EMUL_MODE_REAL :
+		(vcpu->arch.emulate_ctxt.eflags & X86_EFLAGS_VM)
+		? X86EMUL_MODE_VM86 : cs_l
+		? X86EMUL_MODE_PROT64 :	cs_db
+		? X86EMUL_MODE_PROT32 : X86EMUL_MODE_PROT16;
+	memset(c, 0, sizeof(struct decode_cache));
+
+	memcpy(c->regs, vcpu->arch.regs, sizeof c->regs);
+	vcpu->arch.emulate_ctxt.interruptibility = 0;
+	vcpu->arch.emulate_ctxt.exception = -1;
+	vcpu->arch.emulate_ctxt.perm_ok = false;
+*/
 	/* this is needed for vmware backdor interface to work since it
 	   changes registers values  during IO operation */
 	memcpy(c->regs, vcpu->arch.regs, sizeof c->regs);
 
 	rc = emulate_int(&vcpu->arch.emulate_ctxt, vcpu->arch.emulate_ctxt.ops, (int) vcpu->arch.interrupt.nr);
+	DEBUG_PRINT("emulation finished\n");
 
 	/* Needed for asynchronous interrupt handling */
 	vcpu->arch.emulate_ctxt.eip = c->eip;
 
+
+	DEBUG_PRINT("writing rip=%lx, rsp=%lx\n",vcpu->arch.emulate_ctxt.eip,vcpu->arch.emulate_ctxt.decode.regs[VCPU_REGS_RSP])
+/*
+	u32 int_shadow = kvm_x86_ops->get_interrupt_shadow(vcpu, vcpu->arch.emulate_ctxt.interruptibility);
+	if (!(int_shadow & vcpu->arch.emulate_ctxt.interruptibility))
+		kvm_x86_ops->set_interrupt_shadow(vcpu, vcpu->arch.emulate_ctxt.interruptibility);
+*/
 	kvm_x86_ops->set_rflags(vcpu, vcpu->arch.emulate_ctxt.eflags);
 	//kvm_make_request(KVM_REQ_EVENT, vcpu);
 	memcpy(vcpu->arch.regs, c->regs, sizeof vcpu->arch.regs);
 	kvm_rip_write(vcpu, vcpu->arch.emulate_ctxt.eip);
 	kvm_register_write(vcpu, VCPU_REGS_RSP, vcpu->arch.emulate_ctxt.decode.regs[VCPU_REGS_RSP]);
+
 
 
 	return rc;
