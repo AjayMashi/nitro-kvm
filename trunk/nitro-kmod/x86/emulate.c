@@ -77,6 +77,7 @@
 #include "tss.h"
 
 #include "nitro.h"
+#include "nitro_output.h"
 
 /*
  * Opcode effective-address decode tables.
@@ -4134,7 +4135,7 @@ int emulate_int_prot(struct x86_emulate_ctxt *ctxt,
 	/* Needed for asynchronous interrupt handling */
 	ctxt->eip = c->eip;
 
-	printk("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
+	NITRO_OUTPUT("kvm:handle_user_interrupt: int_gate->offset_low=%x int_gate->seg_selector=%x int_gate->flags=%x int_gate->offset_high=%x offset=%x\n",int_gate.offset_low,int_gate.seg_selector,int_gate.flags,int_gate.offset_high,offset);
 	return X86EMUL_CONTINUE;
 }
 

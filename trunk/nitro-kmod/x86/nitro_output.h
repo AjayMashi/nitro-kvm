@@ -8,16 +8,16 @@
 #ifndef NITRO_OUTPUT_H_
 #define NITRO_OUTPUT_H_
 
-int nitro_output_data(u8 *data, int length, int type);
 int nitro_output_init(void);
 int nitro_output_exit(void);
+
+extern int nitro_output_data(u8 *, int, int);
 
 #ifdef USE_NETLINK
 
 #define MAX_LINKS 			32	/* see include/linux/netlink.h */
 #define NITRO_NLMSG_TYPE_BINARY		0
 #define NITRO_NLMSG_TYPE_TEXT		1
-#define NITRO_HEXDUMP_BPL		16	/* bytecount per line in hexdumps */
 
 #if NETLINK_NITRO > MAX_LINKS
 #define NETLINK_NITRO MAX_LINKS
@@ -39,11 +39,9 @@ int nitro_output_exit(void);
 }
 
 #ifdef DEBUG_INTERRUPTS
-#define DEBUG_PRINT(...)		NITRO_OUTPUT(...)
+#define DEBUG_PRINT(...)		NITRO_OUTPUT(__VA_ARGS__)
 #else
 #define DEBUG_PRINT(...)		while (0) {}
 #endif
-
-
 
 #endif /* NITRO_OUTPUT_H_ */

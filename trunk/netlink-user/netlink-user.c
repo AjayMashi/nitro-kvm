@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#undef PRINT_NETLINK_INFO	
 #define NETLINK_NITRO 		26
 #define NETLINK_MC_GROUP	13
 #define MAX_PAYLOAD 		1024
@@ -61,11 +62,18 @@ void recvnlmsg(char *buffer) {
 	
 	memcpy(buffer, NLMSG_DATA(nlh), NLMSG_ALIGN(NLMSG_SPACE(MAX_PAYLOAD) - sizeof(struct nlmsghdr)));
 
+#ifdef PRINT_NETLINK_INFO
 	printf("nlmsg_type: %d nlmsg_len: %d", nlh->nlmsg_type, len);
+#endif
 	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_BINARY)
-		printf("\n%08X %08X\n", *(int *)buffer, *((int *)(buffer + 4)));
+#ifdef PRINT_NETLINK_INFO
+		printf("\n");
+#endif
+		printf("%08X %08X\n", *(int *)buffer, *((int *)(buffer + 4)));
 	if (nlh->nlmsg_type == NITRO_NLMSG_TYPE_TEXT) {
+#ifdef PRINT_NETLINK_INFO
 		printf(" nla_strlen: %d\n", strlen(buffer));
+#endif
 		printf("%s", buffer);
 	}
 }
