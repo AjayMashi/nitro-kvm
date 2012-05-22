@@ -444,7 +444,6 @@ FOUND:
 int sctrace_print_trace(char prefix, struct kvm_vcpu *vcpu){
 	unsigned long cr3, pde, screg;
 	u32 verifier;
-	char *sctrace_line;
 
 	screg = kvm_register_read(vcpu, vcpu->kvm->nitro_data.syscall_reg);
 
@@ -472,7 +471,6 @@ int print_trace_proxy(char prefix, struct kvm_vcpu *vcpu){
 
 int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 	int er;
-	struct kvm_sregs sregs;
 
 	//NITRO_OUTPUT("kvm:handle_gp: #GP trapped\n");
 
@@ -480,7 +478,7 @@ int handle_gp(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run){
 		return 1;
 
 	if(is_sysenter_sysreturn(vcpu)){//sysenter/sysreturn
-		print_trace_proxy('i',vcpu);
+		print_trace_proxy('f',vcpu);
 		er = emulate_instruction(vcpu, 0, 0, 0);
 		if (er != EMULATE_DONE){
 			kvm_clear_exception_queue(vcpu);
