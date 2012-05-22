@@ -9,26 +9,36 @@
 #ifndef SYSCALL_TRACE_H_
 #define SYSCALL_TRACE_H_
 
-#define DEBUG_INTERRUPTS 1
-
-#ifdef DEBUG_INTERRUPTS
-#define DEBUG_PRINT(...)	printk(__VA_ARGS__);
-#else
-#define DEBUG_PRINT(...)	while (false) {}
-#endif
-
-#undef SHADOW_IDT
-//#define SHADOW_IDT
 
 
+/************************************** Global options for nitro ****************************************/
 
+#define VCPU_SCMON_REGS_ANY 	(42) 			/* Used for scmon, represents the "any" 	*/
+							/* register */
+#define DUM_SEG_SELECT 		0xFFFF			/* Value to be used to simulate the absence 	*/
+							/* of IDT entries */
+#undef SHADOW_IDT					/* Whether to use the shadow idt technique 	*/
+//#define DEBUG_INTERRUPTS 	1			/* Switch for debugging interrupt emulation 	*/
+#define USE_NETLINK		1			/* Switch between netlink and dmesg (printk) 	*/
+#define NETLINK_NITRO 		26			/* Value used as netlink protocol type. 	*/
+							/* Be sure to pick a value < MAX_LINKS as	*/
+							/* defined in linux/netlink.h (default is 32) 	*/
+#define NETLINK_MC_GROUP	13			/* Multicast group for receiving user space 	*/
+							/* processes (needs to be < 32)			*/
+#define OUTPUT_MAX_CHARS	1024			/* Buffer size for each output message 		*/
+#define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
+#define NITRO_HEXDUMP_BPL	16			/* bytecount per line in hexdumps 		*/
 
-struct shadow_idt{
+/************* Nothing below this line should be changed, configure only the macros above! **************/
+/********************************************************************************************************/
+
+#ifdef SHADOW_IDT
+struct shadow_idt {
 	__u64 base;
 	__u16 limit;
 	u8 *table;
 };
-
+#endif
 /*
  * struct sctrace_singlestep
  * This struct indicates whether nitro is in singlestep mode and if kvm
@@ -66,7 +76,9 @@ struct nitro_data{
 	int syscall_reg;
 	int no_int;
 	struct sctrace_singlestep singlestep;
+#ifdef SHADOW_IDT
 	struct shadow_idt shadow_idt;
+#endif
 };
 
 struct gate_descriptor{
