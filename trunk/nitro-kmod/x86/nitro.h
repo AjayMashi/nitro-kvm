@@ -25,7 +25,7 @@
 							/* defined in linux/netlink.h (default is 32) 	*/
 #define NETLINK_MC_GROUP	13			/* Multicast group for receiving user space 	*/
 							/* processes (needs to be < 32)			*/
-#define OUTPUT_MAX_CHARS	1024			/* Buffer size for each output message 		*/
+#define OUTPUT_MAX_CHARS	1024 - 20		/* Buffer size for each output message 		*/
 #define NETLINK_EXIT		"NITRO_NETLINK_EXIT"
 #define NITRO_HEXDUMP_BPL	16			/* bytecount per line in hexdumps 		*/
 

@@ -5,6 +5,7 @@
  *      Author: kirschju
  */
 
+#include <linux/kvm_host.h>
 #include <linux/string.h>
 #include <net/sock.h>
 #include <linux/netlink.h>
@@ -21,7 +22,7 @@ u32 len;
 void nl_data_ready(struct sk_buff *skb) {
 	struct nlmsghdr *nl_header;
 	int len;
-	char msgbuf[NLMSG_SPACE(OUTPUT_MAX_CHARS)];
+	char msgbuf[NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr) + 1];
 
 	nl_header = nlmsg_hdr(skb);
 	len = skb->len;
