@@ -1,0 +1,12 @@
+ARCH=i386
+PROCESSOR=i386
+PREFIX=
+KERNELDIR=/lib/modules/2.6.38-15-generic-pae/build
+KERNELSOURCEDIR=
+KERNELVERSION=2.6.38-15-generic-pae
+CROSS_COMPILE=
+CC=gcc
+LD=ld
+OBJCOPY=objcopy
+AR=ar
+KVM_VERSION=kvm-kmod-2.6.37
