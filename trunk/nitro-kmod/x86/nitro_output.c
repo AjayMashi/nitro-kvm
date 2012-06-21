@@ -92,7 +92,7 @@ int nitro_output_data(u8 *data, int length, int type) {
 	
 	/* Data does not fit into one fixed-length netlink packet */ 
 	/* TODO: Fragment packets accordingly ... */
-	if ((type == NITRO_NLMSG_TYPE_BINARY && length > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr)))
+	if ((type == NITRO_MSG_TYPE_BINARY && length > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr)))
 		|| (type == NITRO_NLMSG_TYPE_TEXT && strlen(data) > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr))))
 		return -5;
 
@@ -115,9 +115,9 @@ int nitro_output_data(u8 *data, int length, int type) {
 	/* Set nlmsg_type to signal whether we're sending human readable or binary to the user. */
 	nl_header->nlmsg_type = type;
 	
-	if (type == NITRO_NLMSG_TYPE_BINARY)
+	if (type == NITRO_MSG_TYPE_BINARY)
 		memcpy((u8 *)NLMSG_DATA(nl_header), data, length);
-	if (type == NITRO_NLMSG_TYPE_TEXT)
+	if (type == NITRO_MSG_TYPE_TEXT)
 		strcpy((u8 *)NLMSG_DATA(nl_header), data);
 	
 	/* Update headerfield packetsize */
@@ -138,9 +138,9 @@ int nitro_output_data(u8 *data, int length, int type) {
 	}
 	
 #else
-	if (type == NITRO_NLMSG_TYPE_BINARY) {
+	if (type == NITRO_MSG_TYPE_BINARY) {
 		nitro_print_hexdump(data, length);
-	} elseif (type == NITRO_NLMSG_TYPE_TEXT) {
+	} else if (type == NITRO_MSG_TYPE_TEXT) {
 		printk("%s", data);
 	}
 #endif
