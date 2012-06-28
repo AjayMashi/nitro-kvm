@@ -93,7 +93,7 @@ int nitro_output_data(u8 *data, int length, int type) {
 	/* Data does not fit into one fixed-length netlink packet */ 
 	/* TODO: Fragment packets accordingly ... */
 	if ((type == NITRO_MSG_TYPE_BINARY && length > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr)))
-		|| (type == NITRO_NLMSG_TYPE_TEXT && strlen(data) > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr))))
+		|| (type == NITRO_MSG_TYPE_TEXT && strlen(data) > (NLMSG_SPACE(OUTPUT_MAX_CHARS) - sizeof(struct nlmsghdr))))
 		return -5;
 
 	/* No user space process registered yet */
@@ -128,7 +128,7 @@ int nitro_output_data(u8 *data, int length, int type) {
 	
 	if (err) {
 		printk("WARNING: netlink message dropped");
-		if (type == NITRO_NLMSG_TYPE_BINARY) {
+		if (type == NITRO_MSG_TYPE_BINARY) {
 			printk(":\n");
 			nitro_print_hexdump(data, length);
 		} else {
