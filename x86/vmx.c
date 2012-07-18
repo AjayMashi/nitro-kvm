@@ -2534,6 +2534,35 @@ static void vmx_disable_intercept_for_msr(u32 msr, bool longmode_only)
 	__vmx_disable_intercept_for_msr(vmx_msr_bitmap_longmode, msr);
 }
 
+static void __vmx_enable_intercept_for_msr(unsigned long *msr_bitmap, u32 msr)
+{
+	int f = sizeof(unsigned long);
+
+	if (!cpu_has_vmx_msr_bitmap())
+		return;
+
+	/*
+	 * See Intel PRM Vol. 3, 20.6.9 (MSR-Bitmap Address). Early manuals
+	 * have the write-low and read-high bitmap offsets the wrong way round.
+	 * We can control MSRs 0x00000000-0x00001fff and 0xc0000000-0xc0001fff.
+	 */
+	if (msr <= 0x1fff) {
+		__set_bit(msr, msr_bitmap + 0x000 / f); /* read-low */
+		__set_bit(msr, msr_bitmap + 0x800 / f); /* write-low */
+	} else if ((msr >= 0xc0000000) && (msr <= 0xc0001fff)) {
+		msr &= 0x1fff;
+		__set_bit(msr, msr_bitmap + 0x400 / f); /* read-high */
+		__set_bit(msr, msr_bitmap + 0xc00 / f); /* write-high */
+	}
+}
+
+static void vmx_enable_intercept_for_msr(u32 msr, bool longmode_only)
+{
+	if (!longmode_only)
+		__vmx_enable_intercept_for_msr(vmx_msr_bitmap_legacy, msr);
+	__vmx_enable_intercept_for_msr(vmx_msr_bitmap_longmode, msr);
+}
+
 /*
  * Sets up the vmcs for emulated real mode.
  */
@@ -3338,15 +3367,28 @@ static int handle_rdmsr(struct kvm_vcpu *vcpu)
 {
 	u32 ecx = vcpu->arch.regs[VCPU_REGS_RCX];
 	u64 data;
+	printk("rdmsr 0x%x\n", ecx);
+	/* TODO: Only redirect if the corresponding bit is set in the VMCS MSR bitmap! */
+	switch (ecx) {
+		case MSR_EFER:
+			data = vcpu->kvm->nitro_data.efer_val;
+			printk("patched.\n");
+		break;
+		case MSR_IA32_SYSENTER_CS:
+			data = vcpu->kvm->nitro_data.sysenter_cs_val;
+			printk("patched.\n");
+		break;
+		default:
+			if (vmx_get_msr(vcpu, ecx, &data)) {
+				trace_kvm_msr_read_ex(ecx);
+				kvm_inject_gp(vcpu, 0);
+				return 1;
+			}
 
-	if (vmx_get_msr(vcpu, ecx, &data)) {
-		trace_kvm_msr_read_ex(ecx);
-		kvm_inject_gp(vcpu, 0);
-		return 1;
+			trace_kvm_msr_read(ecx, data);
+		break;
 	}
-
-	trace_kvm_msr_read(ecx, data);
-
+	
 	/* FIXME: handling of bits 32:63 of rax, rdx */
 	vcpu->arch.regs[VCPU_REGS_RAX] = data & -1u;
 	vcpu->arch.regs[VCPU_REGS_RDX] = (data >> 32) & -1u;
@@ -3359,14 +3401,26 @@ static int handle_wrmsr(struct kvm_vcpu *vcpu)
 	u32 ecx = vcpu->arch.regs[VCPU_REGS_RCX];
 	u64 data = (vcpu->arch.regs[VCPU_REGS_RAX] & -1u)
 		| ((u64)(vcpu->arch.regs[VCPU_REGS_RDX] & -1u) << 32);
-
-	if (vmx_set_msr(vcpu, ecx, data) != 0) {
-		trace_kvm_msr_write_ex(ecx, data);
-		kvm_inject_gp(vcpu, 0);
-		return 1;
+		
+	printk("wrmsr 0x%x\n", ecx);
+	/* TODO: Only redirect if the corresponding bit is set in the VMCS MSR bitmap! */
+	switch (ecx) {
+		case MSR_EFER:
+			vcpu->kvm->nitro_data.efer_val = data;
+			printk("patched.\n");
+		break;
+		case MSR_IA32_SYSENTER_CS:
+			vcpu->kvm->nitro_data.sysenter_cs_val = data;
+			printk("patched.\n");
+		break;
+		default:
+			if (vmx_set_msr(vcpu, ecx, data) != 0) {
+				trace_kvm_msr_write_ex(ecx, data);
+				kvm_inject_gp(vcpu, 0);
+				return 1;
+			}
+			trace_kvm_msr_write(ecx, data);
 	}
-
-	trace_kvm_msr_write(ecx, data);
 	skip_emulated_instruction(vcpu);
 	return 1;
 }
@@ -4354,12 +4408,12 @@ static void vmx_unset_gp_trap(struct kvm_vcpu *vcpu) {
 	update_exception_bitmap(vcpu);
 }
 
-static int vmx_enable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
+static int vmx_set_descriptor_table_trap(struct kvm_vcpu *vcpu) {
 	
 	u32 exec_control = 0;
 	u64 allowed_ctl2_state = 0;
 	
-	/* Check if CPU supports VMX secundary execution controls */
+	/* Check if CPU supports VMX secondary execution controls */
 	if (cpu_has_secondary_exec_ctrls()) {
 		rdmsrl(MSR_IA32_VMX_PROCBASED_CTLS2, allowed_ctl2_state);
 		/* Check if CPU supports trapping of descriptor table access */
@@ -4384,11 +4438,11 @@ static int vmx_enable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
 	return 0;
 }
 
-static int vmx_disable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
+static int vmx_unset_descriptor_table_trap(struct kvm_vcpu *vcpu) {
 	
 	u32 exec_control = 0;
 	
-	/* Check if CPU supports VMX secundary execution controls */
+	/* Check if CPU supports VMX secondary execution controls */
 	if (cpu_has_secondary_exec_ctrls()) {
 			/* Unset descriptor table access trap */
 			exec_control = vmcs_read32(SECONDARY_VM_EXEC_CONTROL);
@@ -4403,6 +4457,44 @@ static int vmx_disable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
 	}
 	
 	return 0;
+}
+
+static void vmx_set_msr_trap(struct kvm_vcpu *vcpu) {
+	u32 exec_control = 0;
+	
+	if (cpu_has_vmx_msr_bitmap()) {
+		/* Enable the usage of MSR bitmaps */
+		exec_control = vmcs_read32(CPU_BASED_VM_EXEC_CONTROL);
+		exec_control |= CPU_BASED_USE_MSR_BITMAPS;
+		vmcs_write32(CPU_BASED_VM_EXEC_CONTROL, exec_control);
+		
+		/* Intercept read and write attempts for SYSENTER_CS and the EFER */
+		vmx_enable_intercept_for_msr(MSR_IA32_SYSENTER_CS, false);
+		vmx_enable_intercept_for_msr(MSR_EFER, false);
+	} else {
+		printk("vmx: CPU does not support trapping of MSRs.\n");
+	}
+	return;
+}
+
+static void vmx_unset_msr_trap(struct kvm_vcpu *vcpu) {
+	u32 exec_control = 0;
+	
+	if (cpu_has_vmx_msr_bitmap()) {
+		/* Disable the usage of MSR bitmaps */
+		/* TODO: Don't disable MSR bitmaps if there are still MSRs 
+		 * being monitored (e.g. not all bits = 0 in the bitmap) */
+		exec_control = vmcs_read32(CPU_BASED_VM_EXEC_CONTROL);
+		exec_control &= ~CPU_BASED_USE_MSR_BITMAPS;
+		vmcs_write32(CPU_BASED_VM_EXEC_CONTROL, exec_control);
+		
+		/* Don't intercept read and write attempts for SYSENTER_CS and the EFER */
+		vmx_disable_intercept_for_msr(MSR_IA32_SYSENTER_CS, false);
+		vmx_disable_intercept_for_msr(MSR_EFER, false);
+	} else {
+		printk("vmx: CPU does not support trapping of MSRs.\n");
+	}
+	return;
 }
 
 static struct kvm_x86_ops vmx_x86_ops = {
@@ -4490,8 +4582,10 @@ static struct kvm_x86_ops vmx_x86_ops = {
 
 	.set_gp_trap = vmx_set_gp_trap,
 	.unset_gp_trap = vmx_unset_gp_trap,
-	.enable_dte = vmx_enable_descriptor_table_exiting,
-	.disable_dte = vmx_disable_descriptor_table_exiting
+	.enable_dte = vmx_set_descriptor_table_trap,
+	.disable_dte = vmx_unset_descriptor_table_trap,
+	.set_msr_trap = vmx_set_msr_trap,
+	.unset_msr_trap = vmx_unset_msr_trap
 };
 
 static int __init vmx_init(void)
