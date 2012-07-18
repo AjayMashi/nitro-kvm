@@ -627,6 +627,8 @@ struct kvm_x86_ops {
 	void (*unset_gp_trap)(struct kvm_vcpu *vcpu);
 	int (*enable_dte)(struct kvm_vcpu *vcpu);
 	int (*disable_dte)(struct kvm_vcpu *vcpu);
+	void (*set_msr_trap)(struct kvm_vcpu *vcpu);
+	void (*unset_msr_trap)(struct kvm_vcpu *vcpu);
 	/* END NITRO VMX FEATURES */
 
 	const struct trace_print_flags *exit_reasons_str;

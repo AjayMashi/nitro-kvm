@@ -214,7 +214,14 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 
 		//i++;
 	}
-
+	
+	/* Set MSR trap */
+	kvm_for_each_vcpu(i, vcpu, kvm){
+		vcpu_load(vcpu);
+		kvm_x86_ops->set_msr_trap(vcpu);
+		vcpu_put(vcpu);
+	}
+	
 #ifdef SHADOW_IDT
 	//extern int emulator_read_emulated(unsigned long addr, void *val, unsigned int bytes, unsigned int *error_code, struct kvm_vcpu *vcpu)
 
@@ -352,6 +359,15 @@ int stop_nitro(struct kvm *kvm){
 		i++;
 	}
 
+	/* Unset MSR trap */
+	i=0;
+	while(kvm->vcpus[i] && i<KVM_MAX_VCPUS){
+		vcpu_load(kvm->vcpus[i]);
+		kvm_x86_ops->unset_msr_trap(kvm->vcpus[i]);
+		vcpu_put(kvm->vcpus[i]);
+		i++;
+	}
+	
 #ifdef SHADOW_IDT
 
 #else
