@@ -1498,7 +1498,6 @@ static __init int setup_vmcs_config(struct vmcs_config *vmcs_conf)
 			SECONDARY_EXEC_WBINVD_EXITING |
 			SECONDARY_EXEC_ENABLE_VPID |
 			SECONDARY_EXEC_ENABLE_EPT |
-			SECONDARY_EXEC_DESCRIPT_TBL_EXITING |
 			SECONDARY_EXEC_UNRESTRICTED_GUEST |
 			SECONDARY_EXEC_PAUSE_LOOP_EXITING |
 			SECONDARY_EXEC_RDTSCP;
@@ -1506,6 +1505,7 @@ static __init int setup_vmcs_config(struct vmcs_config *vmcs_conf)
 					MSR_IA32_VMX_PROCBASED_CTLS2,
 					&_cpu_based_2nd_exec_control) < 0)
 			return -EIO;
+		printk("hack");
 	}
 #ifndef CONFIG_X86_64
 	if (!(_cpu_based_2nd_exec_control &
@@ -2577,8 +2577,6 @@ static int vmx_vcpu_setup(struct vcpu_vmx *vmx)
 
 	if (cpu_has_secondary_exec_ctrls()) {
 		exec_control = vmcs_config.cpu_based_2nd_exec_ctrl;
-		//if (cpu_has_vmx_dtr())
-		//	exec_control |= SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
 		if (!vm_need_virtualize_apic_accesses(vmx->vcpu.kvm))
 			exec_control &=
 				~SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES;
@@ -3755,8 +3753,8 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_VMON]                    = handle_vmx_insn,
 	[EXIT_REASON_TPR_BELOW_THRESHOLD]     = handle_tpr_below_threshold,
 	[EXIT_REASON_APIC_ACCESS]             = handle_apic_access,
-	[EXIT_REASON_GDTR_IDTR_ACCESS]		  = handle_dtr_access,
-	[EXIT_REASON_LDTR_TR_ACCESS]		  = handle_dtr2_access,
+	[EXIT_REASON_GDTR_IDTR_ACCESS]	      = handle_dtr_access,
+	[EXIT_REASON_LDTR_TR_ACCESS]	      = handle_dtr2_access,
 	[EXIT_REASON_WBINVD]                  = handle_wbinvd,
 	[EXIT_REASON_XSETBV]                  = handle_xsetbv,
 	[EXIT_REASON_TASK_SWITCH]             = handle_task_switch,
@@ -4356,6 +4354,57 @@ static void vmx_unset_gp_trap(struct kvm_vcpu *vcpu) {
 	update_exception_bitmap(vcpu);
 }
 
+static int vmx_enable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
+	
+	u32 exec_control = 0;
+	u64 allowed_ctl2_state = 0;
+	
+	/* Check if CPU supports VMX secundary execution controls */
+	if (cpu_has_secondary_exec_ctrls()) {
+		rdmsrl(MSR_IA32_VMX_PROCBASED_CTLS2, allowed_ctl2_state);
+		/* Check if CPU supports trapping of descriptor table access */
+		if (allowed_ctl2_state &= ((u64)SECONDARY_EXEC_DESCRIPT_TBL_EXITING) << 32) {
+		
+			/* Set descriptor table access trap */
+			exec_control = vmcs_read32(SECONDARY_VM_EXEC_CONTROL);
+			exec_control |= SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
+			vmcs_write32(SECONDARY_VM_EXEC_CONTROL, exec_control);
+			
+			/* Refresh the global cached variable */
+			vmcs_config.cpu_based_2nd_exec_ctrl = exec_control;
+		} else {
+			printk("vmx: CPU does not support trapping of descriptor table access. (SECONDARY_EXEC_DESCRIPT_TBL_EXITING capability not set.)\n");
+			return -2;			
+		}
+	} else {
+		printk("vmx: CPU does not support trapping of descriptor table access. (no SECONDARY_VM_EXEC_CONTROL section)\n");
+		return -1;
+	}
+	
+	return 0;
+}
+
+static int vmx_disable_descriptor_table_exiting(struct kvm_vcpu *vcpu) {
+	
+	u32 exec_control = 0;
+	
+	/* Check if CPU supports VMX secundary execution controls */
+	if (cpu_has_secondary_exec_ctrls()) {
+			/* Unset descriptor table access trap */
+			exec_control = vmcs_read32(SECONDARY_VM_EXEC_CONTROL);
+			exec_control &= ~SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
+			vmcs_write32(SECONDARY_VM_EXEC_CONTROL, exec_control);
+			
+			/* Refresh the global cached variable */
+			vmcs_config.cpu_based_2nd_exec_ctrl = exec_control;
+	} else {
+		printk("vmx: CPU does not support trapping of descriptor table access. (no SECONDARY_VM_EXEC_CONTROL section)\n");
+		return -1;
+	}
+	
+	return 0;
+}
+
 static struct kvm_x86_ops vmx_x86_ops = {
 	.cpu_has_kvm_support = cpu_has_kvm_support,
 	.disabled_by_bios = vmx_disabled_by_bios,
@@ -4441,6 +4490,8 @@ static struct kvm_x86_ops vmx_x86_ops = {
 
 	.set_gp_trap = vmx_set_gp_trap,
 	.unset_gp_trap = vmx_unset_gp_trap,
+	.enable_dte = vmx_enable_descriptor_table_exiting,
+	.disable_dte = vmx_disable_descriptor_table_exiting
 };
 
 static int __init vmx_init(void)
