@@ -3627,7 +3627,7 @@ twobyte_insn:
 			c->dst.type = OP_NONE;
 			break;
 		case 2: /* lgdt */
-			printk("lgdt\n");
+			//printk("lgdt\n");
 			rc = read_descriptor(ctxt, ops, c->src.addr.mem,
 					     &size, &address, c->op_bytes);
 			if (rc != X86EMUL_CONTINUE)
@@ -3646,7 +3646,7 @@ twobyte_insn:
 					goto cannot_emulate;
 				}
 			} else {
-				printk("lidt\n");
+				//printk("lidt\n");
 				rc = read_descriptor(ctxt, ops, c->src.addr.mem,
 						     &size, &address,
 						     c->op_bytes);

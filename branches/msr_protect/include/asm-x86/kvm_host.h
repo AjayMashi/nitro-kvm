@@ -622,8 +622,12 @@ struct kvm_x86_ops {
 
 	void (*write_tsc_offset)(struct kvm_vcpu *vcpu, u64 offset);
 
+	/* NITRO VMX FEATURES */
 	void (*set_gp_trap)(struct kvm_vcpu *vcpu);
 	void (*unset_gp_trap)(struct kvm_vcpu *vcpu);
+	int (*enable_dte)(struct kvm_vcpu *vcpu);
+	int (*disable_dte)(struct kvm_vcpu *vcpu);
+	/* END NITRO VMX FEATURES */
 
 	const struct trace_print_flags *exit_reasons_str;
 };

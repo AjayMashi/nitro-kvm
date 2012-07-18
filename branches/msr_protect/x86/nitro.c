@@ -183,6 +183,8 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 		vcpu_load(vcpu);
 		kvm_x86_ops->set_gp_trap(vcpu);
 		printk("kvm:start_syscall_trace: cpu%d: GP trap set\n",i);
+		kvm_x86_ops->enable_dte(vcpu);
+		printk("kvm:start_syscall_trace: cpu%d: descriptor table trap set\n",i);
 		vcpu_put(vcpu);
 
 		//i++;
@@ -322,6 +324,8 @@ int stop_nitro(struct kvm *kvm){
 		vcpu_load(kvm->vcpus[i]);
 		kvm_x86_ops->unset_gp_trap(kvm->vcpus[i]);
 		printk("kvm:start_syscall_trace: cpu%d: GP trap unset\n",i);
+		kvm_x86_ops->disable_dte(kvm->vcpus[i]);
+		printk("kvm:start_syscall_trace: cpu%d: descriptor table trap unset\n",i);
 		vcpu_put(kvm->vcpus[i]);
 
 		i++;
