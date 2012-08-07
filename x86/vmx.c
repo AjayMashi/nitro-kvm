@@ -3546,8 +3546,8 @@ static int handle_dtr_access(struct kvm_vcpu *vcpu){
 	rip = kvm_rip_read(vcpu);
 	
 	for (i = 0; i < ins_len; i++) {
-	  vcpu->arch.emulate_ctxt.ops->read_std(rip + i, &offset, 1, vcpu, &err);
-	  printk("%x ", offset);
+		vcpu->arch.emulate_ctxt.ops->read_std(rip + i, &offset, 1, vcpu, &err);
+		printk("%x ", offset);
 	}
 	printk("\n");
 	vcpu->arch.emulate_ctxt.ops->read_std(rip + ins_len - 1, &offset, 1, vcpu, &err);
@@ -3570,33 +3570,68 @@ static int handle_dtr_access(struct kvm_vcpu *vcpu){
 	 // }
 	
 	switch (VMX_INSTRUCTION_INFO_INSTRUCTION_IDENTITY(ins_info)) {
-	  case 0: /* sgdt */
-	  break;
-	  case 1: /* sidt */
-	    if (vcpu->kvm->nitro_data.running) {
-	      printk("Patching IDT limit to 0x%x\n", vcpu->kvm->nitro_data.shadow_idt.limit);
-	      printk("Patching IDT base to 0x%llx\n", vcpu->kvm->nitro_data.shadow_idt.base);	      
-	      vcpu->arch.emulate_ctxt.ops->write_std(
-		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
-		&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
-	      vcpu->arch.emulate_ctxt.ops->write_std(
-		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
-		&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
-	    } else {
-	      base = vmcs_readl(GUEST_IDTR_BASE) & 0xffffffff;
-	      limit = vmcs_read32(GUEST_IDTR_LIMIT) & 0xffff;
-	      vcpu->arch.emulate_ctxt.ops->write_std(
-		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
-		&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
-	      vcpu->arch.emulate_ctxt.ops->write_std(
-		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
-		&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
-	    }
-	  break;
-	  case 2: /* lgdt */
-	  break;
-	  case 3: /* lidt */
-	  break;
+		case 0: /* sgdt */
+			base = vmcs_readl(GUEST_GDTR_BASE) & 0xffffffff;
+			limit = vmcs_read32(GUEST_GDTR_LIMIT) & 0xffff;
+			vcpu->arch.emulate_ctxt.ops->write_std(
+			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+			&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+			vcpu->arch.emulate_ctxt.ops->write_std(
+			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+			&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);	
+		break;
+		case 1: /* sidt */
+			if (vcpu->kvm->nitro_data.running) {
+				printk("SIDT: Patching IDT limit to 0x%x\n", vcpu->kvm->nitro_data.shadow_idt.limit);
+				printk("SIDT: Patching IDT base to 0x%llx\n", vcpu->kvm->nitro_data.shadow_idt.base);	      
+				vcpu->arch.emulate_ctxt.ops->write_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+				&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+				vcpu->arch.emulate_ctxt.ops->write_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+				&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
+			} else {
+				base = vmcs_readl(GUEST_IDTR_BASE) & 0xffffffff;
+				limit = vmcs_read32(GUEST_IDTR_LIMIT) & 0xffff;
+				vcpu->arch.emulate_ctxt.ops->write_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+				&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+				vcpu->arch.emulate_ctxt.ops->write_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+				&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
+			}
+		break;
+		case 2: /* lgdt */
+			vcpu->arch.emulate_ctxt.ops->read_std(
+			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+			&limit, 2, vcpu, &err);
+			vcpu->arch.emulate_ctxt.ops->read_std(
+			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+			&base, 4, vcpu, &err);
+			vmcs_writel(GUEST_GDTR_BASE, base);
+			vmcs_writel(GUEST_GDTR_LIMIT, limit);
+		break;
+		case 3: /* lidt */
+			if (vcpu->kvm->nitro_data.running) {
+				printk("LIDT: Patching IDT limit to 0x%x\n", vcpu->kvm->nitro_data.shadow_idt.limit);
+				printk("LIDT: Patching IDT base to 0x%llx\n", vcpu->kvm->nitro_data.shadow_idt.base);	      
+				vcpu->arch.emulate_ctxt.ops->read_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+				&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+				vcpu->arch.emulate_ctxt.ops->read_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+				&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
+			} else {
+				vcpu->arch.emulate_ctxt.ops->read_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+				&limit, 2, vcpu, &err);
+				vcpu->arch.emulate_ctxt.ops->read_std(
+				vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+				&base, 4, vcpu, &err);
+				vmcs_writel(GUEST_IDTR_BASE, base);
+				vmcs_writel(GUEST_IDTR_LIMIT, limit);
+			}
+		break;
 	}
 	return 1;
 }
