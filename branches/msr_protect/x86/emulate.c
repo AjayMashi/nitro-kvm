@@ -2924,9 +2924,9 @@ done_prefixes:
 
 	/* Unrecognised? */
 	if (c->d == 0 || (c->d & Undefined)) {
-		printk("Cannot emulate %02x\n", c->b);
-		DPRINTF("Cannot emulate %02x\n", c->b);
-		return -1;
+		printk("Cannot emulate %02x %02x\n", c->b, c->d);
+		DPRINTF("Cannot emulate %02x %02x\n", c->b, c->d);
+		//return -1;
 	}
 
 	if (mode == X86EMUL_MODE_PROT64 && (c->d & Stack))
@@ -3624,6 +3624,10 @@ twobyte_insn:
 			/* Let the processor re-execute the fixed hypercall */
 			c->eip = ctxt->eip;
 			/* Disable writeback. */
+			c->dst.type = OP_NONE;
+			break;
+		case 1: /* sidt */
+			printk("sidt\n");
 			c->dst.type = OP_NONE;
 			break;
 		case 2: /* lgdt */

@@ -251,7 +251,8 @@ int start_nitro(struct kvm *kvm,int64_t idt_index,char* syscall_reg,enum nitro_m
 		//while(kvm->vcpus[i] && i<KVM_MAX_VCPUS){
 		kvm_for_each_vcpu(i, vcpu, kvm){
 			kvm_arch_vcpu_ioctl_get_sregs(vcpu,&sregs);
-
+			kvm->nitro_data.shadow_idt.base = sregs.idt.base;
+			kvm->nitro_data.shadow_idt.limit = sregs.idt.limit;
 			if(sregs.idt.base != idt_base){
 				idt_base = sregs.idt.base;
 
@@ -482,7 +483,7 @@ int sctrace_print_trace(char prefix, struct kvm_vcpu *vcpu){
 	nitro_output_append(sctrace_line, 255);
 */
 
-printk("kvm:syscall trace(%c): %s:0x%lX:%u:0x%lX %lu\n", prefix, vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg);
+//printk("kvm:syscall trace(%c): %s:0x%lX:%u:0x%lX %lu\n", prefix, vcpu->kvm->nitro_data.id, cr3, verifier, pde, screg);
 
 	vcpu->kvm->nitro_data.singlestep.need_exit_to_qemu = 1;
 	return 0;
