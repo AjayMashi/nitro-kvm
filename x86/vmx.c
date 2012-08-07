@@ -3367,16 +3367,20 @@ static int handle_rdmsr(struct kvm_vcpu *vcpu)
 {
 	u32 ecx = vcpu->arch.regs[VCPU_REGS_RCX];
 	u64 data;
-	printk("rdmsr 0x%x\n", ecx);
+
 	/* TODO: Only redirect if the corresponding bit is set in the VMCS MSR bitmap! */
 	switch (ecx) {
 		case MSR_EFER:
-			data = vcpu->kvm->nitro_data.efer_val;
-			printk("patched.\n");
+			if (vcpu->kvm->nitro_data.running) {
+				data = vcpu->kvm->nitro_data.efer_val;
+				printk("rdmsr 0x%x\n", ecx);
+			}
 		break;
 		case MSR_IA32_SYSENTER_CS:
-			data = vcpu->kvm->nitro_data.sysenter_cs_val;
-			printk("patched.\n");
+			if (vcpu->kvm->nitro_data.running) {
+				data = vcpu->kvm->nitro_data.sysenter_cs_val;
+				printk("rdmsr 0x%x\n", ecx);
+			}
 		break;
 		default:
 			if (vmx_get_msr(vcpu, ecx, &data)) {
@@ -3402,16 +3406,20 @@ static int handle_wrmsr(struct kvm_vcpu *vcpu)
 	u64 data = (vcpu->arch.regs[VCPU_REGS_RAX] & -1u)
 		| ((u64)(vcpu->arch.regs[VCPU_REGS_RDX] & -1u) << 32);
 		
-	printk("wrmsr 0x%x\n", ecx);
+
 	/* TODO: Only redirect if the corresponding bit is set in the VMCS MSR bitmap! */
 	switch (ecx) {
 		case MSR_EFER:
-			vcpu->kvm->nitro_data.efer_val = data;
-			printk("patched.\n");
+			if (vcpu->kvm->nitro_data.running) {
+				vcpu->kvm->nitro_data.efer_val = data;
+				printk("wrmsr 0x%x\n", ecx);
+			}
 		break;
 		case MSR_IA32_SYSENTER_CS:
-			vcpu->kvm->nitro_data.sysenter_cs_val = data;
-			printk("patched.\n");
+			if (vcpu->kvm->nitro_data.running) {
+				vcpu->kvm->nitro_data.sysenter_cs_val = data;
+				printk("wrmsr 0x%x\n", ecx);
+			}
 		break;
 		default:
 			if (vmx_set_msr(vcpu, ecx, data) != 0) {
@@ -3507,22 +3515,95 @@ static int handle_apic_access(struct kvm_vcpu *vcpu)
 	return emulate_instruction(vcpu, 0, 0, 0) == EMULATE_DONE;
 }
 
+extern int is_sidt(struct kvm_vcpu *vcpu);
+extern int is_sgdt(struct kvm_vcpu *vcpu);
+
+#define VMX_INSTRUCTION_INFO_SCALING(x)              (x & (bit(0)  | bit(1)))                      >> 0
+#define VMX_INSTRUCTION_INFO_ADDRESS_SIZE(x)         (x & (bit(7)  | bit(8)))                      >> 7
+#define VMX_INSTRUCTION_INFO_OPERAND_SIZE(x)         (x & (bit(11)))                               >> 11
+#define VMX_INSTRUCTION_INFO_SEGMENT_REGISTER(x)     (x & (bit(15) | bit(16) | bit(17)))           >> 15
+#define VMX_INSTRUCTION_INFO_INDEX_REGISTER(x)       (x & (bit(18) | bit(19) | bit(20) | bit(21))) >> 18
+#define VMX_INSTRUCTION_INFO_INDEX_REG_INVALID(x)    (x & (bit(22)))                               >> 22
+#define VMX_INSTRUCTION_INFO_BASE_REGISTER(x)        (x & (bit(23) | bit(24) | bit(25) | bit(26))) >> 23
+#define VMX_INSTRUCTION_INFO_BASE_REG_INVALID(x)     (x & (bit(27)))                               >> 27
+#define VMX_INSTRUCTION_INFO_INSTRUCTION_IDENTITY(x) (x & (bit(28) | bit(29)))                     >> 28
+
 static int handle_dtr_access(struct kvm_vcpu *vcpu){
-	printk("kvm: DTR access!\n");
-	if(is_lgdt_lidt_lmsw(vcpu))
-		return emulate_instruction(vcpu, 0, 0, 0) == EMULATE_DONE;
-	else
-		skip_emulated_instruction(vcpu);
-		return 1;
+	u32 base = 0;
+	u16 limit = 0;
+	u32 ins_info = 0;
+	u32 ins_len = 0;
+	u32 data = 0;
+	u32 err = 0;
+	u32 rip = 0;
+	u8 offset = 0;
+	int i = 0;
+	
+	ins_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	ins_len = vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
+	vmx_cache_reg(vcpu, VCPU_REGS_RSP);
+	
+	rip = kvm_rip_read(vcpu);
+	
+	for (i = 0; i < ins_len; i++) {
+	  vcpu->arch.emulate_ctxt.ops->read_std(rip + i, &offset, 1, vcpu, &err);
+	  printk("%x ", offset);
+	}
+	printk("\n");
+	vcpu->arch.emulate_ctxt.ops->read_std(rip + ins_len - 1, &offset, 1, vcpu, &err);
+	vcpu->arch.emulate_ctxt.ops->read_std(vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset, &data, 4, vcpu, &err);
+	printk("VMX_INSTRUCTION_INFO is                    0x%x\n", ins_info);
+	printk("VMX_INSTRUCTION_INFO_SCALING:              0x%x\n", VMX_INSTRUCTION_INFO_SCALING(ins_info));
+	printk("VMX_INSTRUCTION_INFO_ADDRESS_SIZE:         0x%x\n", VMX_INSTRUCTION_INFO_ADDRESS_SIZE(ins_info));
+	printk("VMX_INSTRUCTION_INFO_OPERAND_SIZE:         0x%x\n", VMX_INSTRUCTION_INFO_OPERAND_SIZE(ins_info));
+	printk("VMX_INSTRUCTION_INFO_SEGMENT_REGISTER:     0x%x\n", VMX_INSTRUCTION_INFO_SEGMENT_REGISTER(ins_info));
+	printk("VMX_INSTRUCTION_INFO_INDEX_REGISTER:       0x%x\n", VMX_INSTRUCTION_INFO_INDEX_REGISTER(ins_info));
+	printk("VMX_INSTRUCTION_INFO_INDEX_REG_INVALID:    0x%x\n", VMX_INSTRUCTION_INFO_INDEX_REG_INVALID(ins_info));
+	printk("VMX_INSTRUCTION_INFO_BASE_REGISTER:        0x%x\n", VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info));
+	printk("VMX_INSTRUCTION_INFO_BASE_REG_INVALID:     0x%x\n", VMX_INSTRUCTION_INFO_BASE_REG_INVALID(ins_info));
+	printk("VMX_INSTRUCTION_INFO_INSTRUCTION_IDENTITY: 0x%x\n", VMX_INSTRUCTION_INFO_INSTRUCTION_IDENTITY(ins_info));
+	printk("VM_EXIT_INSTRUCTION_LEN:                   0x%x\n", ins_len);
+	printk("VM_EXIT_INSTRUCTION_OFFSET:                0x%x\n", offset);
+	printk("Memory location is 0x%lx\n", vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset);
+	printk("Data is 0x%x\n", data);
+	skip_emulated_instruction(vcpu);
+	 // }
+	
+	switch (VMX_INSTRUCTION_INFO_INSTRUCTION_IDENTITY(ins_info)) {
+	  case 0: /* sgdt */
+	  break;
+	  case 1: /* sidt */
+	    if (vcpu->kvm->nitro_data.running) {
+	      printk("Patching IDT limit to 0x%x\n", vcpu->kvm->nitro_data.shadow_idt.limit);
+	      printk("Patching IDT base to 0x%llx\n", vcpu->kvm->nitro_data.shadow_idt.base);	      
+	      vcpu->arch.emulate_ctxt.ops->write_std(
+		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+		&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+	      vcpu->arch.emulate_ctxt.ops->write_std(
+		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+		&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
+	    } else {
+	      base = vmcs_readl(GUEST_IDTR_BASE) & 0xffffffff;
+	      limit = vmcs_read32(GUEST_IDTR_LIMIT) & 0xffff;
+	      vcpu->arch.emulate_ctxt.ops->write_std(
+		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
+		&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+	      vcpu->arch.emulate_ctxt.ops->write_std(
+		vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
+		&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);
+	    }
+	  break;
+	  case 2: /* lgdt */
+	  break;
+	  case 3: /* lidt */
+	  break;
+	}
+	return 1;
 }
 
 static int handle_dtr2_access(struct kvm_vcpu *vcpu){
 	printk("kvm: DTR2 access!\n");
-	if(is_lgdt_lidt_lmsw(vcpu))
-		return emulate_instruction(vcpu, 0, 0, 0) == EMULATE_DONE;
-	else
-		skip_emulated_instruction(vcpu);
-		return 1;
+	return handle_dtr_access(vcpu);
 }
 
 static int handle_task_switch(struct kvm_vcpu *vcpu)
@@ -4423,6 +4504,7 @@ static int vmx_set_descriptor_table_trap(struct kvm_vcpu *vcpu) {
 			exec_control = vmcs_read32(SECONDARY_VM_EXEC_CONTROL);
 			exec_control |= SECONDARY_EXEC_DESCRIPT_TBL_EXITING;
 			vmcs_write32(SECONDARY_VM_EXEC_CONTROL, exec_control);
+			printk("dt trap set!\n");
 			
 			/* Refresh the global cached variable */
 			vmcs_config.cpu_based_2nd_exec_ctrl = exec_control;
