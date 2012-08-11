@@ -3570,10 +3570,10 @@ static int handle_dtr_access(struct kvm_vcpu *vcpu){
 			limit = vmcs_read32(GUEST_GDTR_LIMIT) & 0xffff;
 			vcpu->arch.emulate_ctxt.ops->write_std(
 			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset,
-			&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+			&limit, 2, vcpu, &err);
 			vcpu->arch.emulate_ctxt.ops->write_std(
 			vcpu->arch.regs[VMX_INSTRUCTION_INFO_BASE_REGISTER(ins_info)] + offset + 2,
-			&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);	
+			&base, 4, vcpu, &err);	
 		break;
 		case 1: /* sidt */
 			if (vcpu->kvm->nitro_data.running) {
@@ -3691,10 +3691,10 @@ static int handle_dtr2_access(struct kvm_vcpu *vcpu){
 			limit = vmcs_read32(GUEST_LDTR_LIMIT) & 0xffff;
 			vcpu->arch.emulate_ctxt.ops->write_std(
 			vcpu->arch.regs[VMX_INSTRUCTION_INFO2_BASE_REGISTER(ins_info)] + offset,
-			&vcpu->kvm->nitro_data.shadow_idt.limit, 2, vcpu, &err);
+			&limit, 2, vcpu, &err);
 			vcpu->arch.emulate_ctxt.ops->write_std(
 			vcpu->arch.regs[VMX_INSTRUCTION_INFO2_BASE_REGISTER(ins_info)] + offset + 2,
-			&vcpu->kvm->nitro_data.shadow_idt.base, 4, vcpu, &err);	
+			&base, 4, vcpu, &err);	
 		break;
 		case 1: /* str */
 			seg_selector = vmcs_read16(GUEST_TR_SELECTOR) & 0xffff;
